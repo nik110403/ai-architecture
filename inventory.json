@@ -1,0 +1,30 @@
+{
+  "files": {
+    "COVERAGE.md": "1a56f1a8fbb9808b09f9d2be9c111fe627c65051cda56d18c1b638df62b220aa",
+    "INSTALL.md": "d1c4cb8144f813606b10b5f44b04dbbe6f5574ff5ea9d85c4da93af1d10796d1",
+    "LICENSE": "77b3e84333601cdc619267f41faa2ecc88d4e268807251795d53f3e01cd356f6",
+    "README.md": "a13a57222110f98fccfc100b025db40a47b5f70c8e4de3acf734121a50b0e1a3",
+    "RELEASE.md": "c214995786e753d578f413e53e54a68566d61e20b06349234cda39a7315490a1",
+    "RUN.md": "ce83d4524b4e8f626a8c995e2848ae8d801f75ae906b018066a7febf01dc7303",
+    "docs/LICENSE.md": "8ac46a734fa8de27b23de148bc1750544c2e66055bb9240e5102ef8b001684c0",
+    "examples/continuity/RUN.md": "73446d1512ddb3136ab5a0d2ff3649a7656e4fe93824573d13bc56a60cea029a",
+    "examples/continuity/run.py": "4de686233e603ee254639a61b648cecb3a42038a1439c51ada6a35b4a2ffa901",
+    "modules/agents/README.md": "be61316de65fb336b588e1b4f1bdcbaa4ec94557a276722ba5cc1046f11082f7",
+    "modules/context/README.md": "182402e7ef65f489b0280affeb112c2829c9aea994c583946c875e7c4e848d59",
+    "modules/continuity/README.md": "27ab5602d92f2b9ed7b818094798c6b3e4f198c29c6847314079cac6a1fb2624",
+    "modules/continuity/journal.py": "71a60f8f562f1e74a45396e0a26bf8111a86a0b38130298a5629167a9f3e686a",
+    "modules/design/README.md": "52b9ac11047b983a881e48c410d5be19b618934528226e5ffe39c2e754bcec1b",
+    "modules/evaluation/README.md": "6e9b6c56849b0003920734d150e4b9db6a18f8be82d33759bf2f4c9888596838",
+    "modules/maintenance/README.md": "f267908a3b21f2e6c1423ceb8051b9d9c1ac564c25856e4d43b9c346222eb3fb",
+    "modules/planning/README.md": "4219d7f5695673796087fa0f2b42d2fadadec6c7fdeaf8679def0d04e49417c8",
+    "modules/research/README.md": "818f29d0824987d3e289896fadc126311051fc3f02996a2f3c11264e7d3fc995",
+    "modules/review/README.md": "0f2ece474fdd623f0148b02173f58b7846add4b8977ebb78b92d2b06814374aa",
+    "modules/safety/README.md": "a31e1a92080707000caab39fd2fa88ad266f3380254ec526d2241fbcb54fd4b5",
+    "modules/workspace/README.md": "6cb3bf465dea67dd345874c4c22cf8e61be21ef153322882451bff1813b1534a",
+    "scripts/package_preview.py": "f2e185e9a7dbcb33f32cd28057f58f05bbad72878fd44df18035f086c4487ff6"
+  },
+  "format": 1,
+  "generated": [
+    "inventory.json"
+  ]
+}

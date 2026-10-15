@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOL = ROOT / "modules" / "continuity" / "journal.py"
+TOOL = ROOT / "skills" / "continuity" / "scripts" / "journal.py"
 NEXT = "write checked-summary.json from verified numbers.json"
 
 

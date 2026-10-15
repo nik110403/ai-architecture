@@ -1,16 +1,79 @@
-# Install by copying
+# Install
 
-This preview has no installer. Copy only the files you choose into a project-local directory such as `.ai-architecture/`; do not replace existing assistant instructions, settings, or project files.
+**0.2.0 candidate NOT PUBLISHED.** The manifest version is `0.2.0-preview`.
+The current remote contains the old preview, not this collection. The following
+marketplace instructions are for a future publication, not an installation receipt.
 
-1. Read `COVERAGE.md`, then copy one selected `modules/<id>/README.md` and use its recipe as guidance.
-2. For continuity, copy `modules/continuity/journal.py`, `modules/continuity/README.md`, and `examples/continuity/run.py` if you want the fixture. Keep the Python file executable only if your platform needs that convenience; invoke it with Python either way.
-3. Merge a template manually into a user-approved, project-local path. Do not copy this preview into home configuration, tool configuration, or another project without that project's owner approving the path.
-4. Load modules lazily: read planning for a new bounded task, review only when checking work, and so on. These documents do not grant permissions or enforce them.
+## Claude Code
 
-## Prompt for a friend's AI
+When this collection is published at the marketplace root:
 
-Copy this prompt after copying the files you selected:
+```text
+/plugin marketplace add nik110403/ai-architecture
+/plugin install ai-architecture@ai-architecture
+```
 
-> We are using selected files from a project-local AI Architecture preview as optional guidance. Preserve my current instructions, settings, and project conventions. Do not install, overwrite, discover home directories, change permissions, run commands, or copy files unless I explicitly approve each project-local destination. Load only the module relevant to the present task. Treat worker reports as claims requiring independent checks. The continuity journal stores references and never authorizes or executes its `Next` text.
+For the local candidate, replace `PATH` below with the absolute collection directory
+(not the recipient project). Local loading is not a global install:
 
-Copying is explicit and reversible: remove only the files you copied after checking that they contain no project work.
+```sh
+claude --plugin-dir PATH
+claude plugin validate --strict PATH
+claude plugin validate --strict PATH/.claude-plugin/plugin.json
+claude plugin validate --strict PATH/.claude-plugin/marketplace.json
+```
+
+Use `/ai-architecture:plan`, `/ai-architecture:execute`, `/ai-architecture:review`,
+`/ai-architecture:checkpoint`, `/ai-architecture:research`, or `/ai-architecture:health`.
+Plugin-local command references use `${CLAUDE_PLUGIN_ROOT}` so health checks target
+the collection rather than the user's project. Commands grant no permissions.
+Plugin-root skills, roles and commands use Claude metadata; native loading remains
+unverified here. Manually merge chosen rules; do not overwrite settings or rules.
+
+## Selective skill adoption
+
+Choose one skill from [CATALOG.md](CATALOG.md). Copy the **entire**
+`skills/<name>` directory, including assets and scripts, to one project-local destination:
+
+| Harness | Destination |
+| --- | --- |
+| Claude Code | `.claude/skills/<name>` |
+| Codex | `.agents/skills/<name>` |
+| OpenCode | `.opencode/skills/<name>` |
+
+Example from a POSIX shell; run in the recipient project, substitute your absolute
+collection path, and choose exactly one destination:
+
+```sh
+COLLECTION=/absolute/path/to/collection
+DEST=.claude/skills/planning
+if test -e "$DEST" || test -L "$DEST"; then
+  printf '%s\n' 'Collision: refusing copy; inspect and merge manually.' >&2
+else
+  mkdir -p .claude/skills
+  cp -R "$COLLECTION/skills/planning" "$DEST"
+fi
+```
+
+For Codex replace `DEST` with `.agents/skills/planning` and the parent passed to
+`mkdir` with `.agents/skills`; for OpenCode use `.opencode/skills/planning` and
+`.opencode/skills`. Never copy over an existing skill directory. Inspect collisions
+and merge manually. Do not replace project instructions, settings, or rules.
+Role and command files are Claude-native metadata plus instruction bodies; other
+harnesses require deliberate native configuration/manual adaptation, not universal
+agent import. See [Codex](adapters/codex.md) and [OpenCode](adapters/opencode.md).
+
+## Verify offline
+
+Run from the collection root, not the recipient project:
+
+```sh
+python3 -B scripts/check_collection.py
+python3 -B -m unittest discover -s tests -v
+python3 -B examples/continuity/run.py
+python3 -B -m unittest discover -s examples/worked-example/tests -v
+```
+
+Python 3.11+ and the standard library suffice. The separate Claude strict validator
+requires the Claude CLI. The continuity [run guide](examples/continuity/README.md)
+explains the temporary-directory fixture; it never executes arbitrary Next text.

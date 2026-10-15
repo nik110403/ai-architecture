@@ -24,7 +24,7 @@ reason to invent a successful run.
 
 `scripts/route.py` reports route, required context, roles, stable capability IDs,
 ordered checks, available/missing adapters, stop/approval conditions, and fallback.
-Unknown or mixed intent, inventory-needed source families, critical missing ports,
+Unknown or mixed intent, no-port source families, critical missing ports,
 missing checker model roles, exhausted review budget, pending jobs, and unknown arrivals
 refuse a COMPLETE route. External action stays CONDITIONAL even with reported typed
 state-bound approval metadata: the active harness remains the authority. Manual mode
@@ -154,7 +154,7 @@ record. It is not browser automation, a permission grant, or a submission ledger
 
 [examples/system-journey/](examples/system-journey/) deterministically exercises
 task → route → bounded brief → fixture result → independent check → persisted Next and
-fresh-process recovery. It additionally proves an inventory-needed refusal and a
+fresh-process recovery. It additionally proves a no-port refusal and a
 pending-job refusal. The fixture is authored evidence, not an AI-performance claim;
 its saved Next is data and is never executed.
 
@@ -165,7 +165,7 @@ AI builder/checker transcript.
 
 ## What this does not prove
 
-This local candidate maps inspected source families and adds report-only routing,
+This collection maps inspected source families and adds report-only routing,
 specialist process ports, and a deterministic local journey. It does not prove native
 enforcement, automatic routing, agent/platform behavior, model selection, external
 acts, or whole-system completeness. Follow the selective installation guidance in

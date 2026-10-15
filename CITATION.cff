@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "ai-architecture"
+abstract: "Report-only routing, maker/checker review and resumable handoffs for AI-assisted work, as skills and offline tools you can copy."
+version: 0.3.1-preview
+date-released: 2026-10-15
+authors:
+  - family-names: Khosravipour
+    given-names: Nik
+repository-code: "https://github.com/nik110403/ai-architecture"
+url: "https://nikkhosravipour.com"
+license: MIT

@@ -26,7 +26,7 @@ class RouteTests(unittest.TestCase):
 
     def test_unread_family_refuses(self):
         self.assertEqual(
-            route("make a system atlas", READY)["reason"], "inventory-needed"
+            route("make a system atlas", READY)["reason"], "no-port"
         )
 
     def test_explicit_route_ids_are_exact_and_cannot_bypass_unread(self):
@@ -39,7 +39,7 @@ class RouteTests(unittest.TestCase):
                 ("route:coding-extra", "unknown"),
                 ("route:bogus", "unknown"),
                 ("route:coding route:research", "ambiguous"),
-                ("route:coding troubleshoot", "inventory-needed"),
+                ("route:coding troubleshoot", "no-port"),
             ):
                 result = route(intent, READY, mode=mode)
                 self.assertEqual(
@@ -50,7 +50,7 @@ class RouteTests(unittest.TestCase):
                 result = route(intent, maintenance, mode=mode)
                 self.assertEqual(
                     (result["status"], result["reason"]),
-                    ("REFUSE", "inventory-needed"),
+                    ("REFUSE", "no-port"),
                 )
 
     def test_malformed_availability_is_refused_not_coerced(self):

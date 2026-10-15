@@ -41,7 +41,7 @@ POLICY = {
         "context": ("declared scope", "baseline", "cadence or trigger"),
     },
 }
-UNREAD = (
+NO_PORT = (
     "system atlas",
     "system-atlas",
     "ui-ux-design",
@@ -71,9 +71,9 @@ def _classification(intent):
     if not isinstance(intent, str) or not intent.strip():
         return None, "invalid intent"
     lowered = intent.lower()
-    # Unread entrypoints refuse first, so an explicit route cannot bypass them.
-    if any(_words(lowered, phrase) for phrase in UNREAD):
-        return None, "inventory-needed"
+    # No-port entrypoints refuse first, so an explicit route cannot bypass them.
+    if any(_words(lowered, phrase) for phrase in NO_PORT):
+        return None, "no-port"
     if re.search(r"(?<![a-z0-9-])route:", lowered):
         explicit = re.findall(r"(?<![a-z0-9-])route:([a-z0-9-]+)", lowered)
         if any(name not in POLICY for name in explicit):
@@ -188,7 +188,7 @@ def route(intent, available, mode="enforced", pending_jobs=(), unknown_arrivals=
         missing_model_roles=missing_models,
         ordered_checks=external_checks,
         stop_conditions=[
-            "ambiguous or inventory-needed intent",
+            "ambiguous or no-port intent",
             "critical adapter missing",
             "checker role/model unavailable",
             "pending or unknown arrival",

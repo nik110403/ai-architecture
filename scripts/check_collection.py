@@ -21,7 +21,7 @@ ROLES = set(
 )
 COMMANDS = set("plan execute review checkpoint research health".split())
 ROOT_DOCS = set(
-    "README.md INSTALL.md CATALOG.md COVERAGE.md CONTRIBUTING.md CHANGELOG.md AGENTS.md LICENSE LICENSES.md".split()
+    "README.md INSTALL.md CATALOG.md COVERAGE.md CONTRIBUTING.md CHANGELOG.md AGENTS.md LICENSE LICENSE-docs LICENSES.md CITATION.cff CAPABILITIES.md WORKFLOWS.md .markdownlint.yaml assets/banner-light.svg assets/banner-dark.svg assets/social-preview.png tools/banner/bin/make-banner tools/banner/fonts/OFL.txt".split()
 )
 TEMPLATES = set(
     "plan.md work-item.md resume.md worker-brief.md worker-result.md review.md measurement.md maintenance.md route-report.md lifecycle-record.md panel-review.md".split()
@@ -42,6 +42,8 @@ ROOT_DIRS = {
     "templates",
     "adapters",
     "rules",
+    "assets",
+    "tools",
     ".claude-plugin",
 }
 
@@ -157,7 +159,7 @@ def manifests():
         "author",
     }:
         fail("plugin schema fields mismatch")
-    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.3.0-preview":
+    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.3.1-preview":
         fail("plugin name/version mismatch")
     if (
         not isinstance(plugin["description"], str)
@@ -240,6 +242,13 @@ def main():
         safe(path, directory=path.is_dir())
     for name in ROOT_DOCS:
         safe(ROOT / name)
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    if "assets/banner-light.svg" not in "\n".join(readme.splitlines()[:15]):
+        fail("README banner missing from first 15 lines")
+    if re.search(r"sanitized|T[0-9] release|candidate|NOT PUBLISHED|staged|/home/", readme, re.I):
+        fail("README contains internal status wording")
+    if not (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License\n"):
+        fail("LICENSE must start with 'MIT License'")
     if {p.name for p in (ROOT / "skills").iterdir()} != SKILLS:
         fail("skill inventory mismatch")
     for name in SKILLS:

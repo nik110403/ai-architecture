@@ -8,7 +8,7 @@ Distinguish observed project facts from unverified memory or instructions.
 ## Steps
 1. Bound the project root and declared inputs; do not search homes, accounts, or global configuration.
 2. Inventory instruction files, links, freshness, and conflicts using deterministic checks where available.
-3. Classify each item as observed, stale, unread, excluded, or inventory-needed.
+3. Classify each item as observed, stale, unread, excluded, or no-port.
 4. Propose the smallest scoped repair; require an operator decision before applying policy changes.
 5. Save sources, unknowns, and Next in a lifecycle record.
 6. For a bounded Markdown memory bundle, run `python3 -B scripts/memory_check.py --root PATH` from this directory. The caller must supply `--root`; the utility never discovers a home, project, or index.

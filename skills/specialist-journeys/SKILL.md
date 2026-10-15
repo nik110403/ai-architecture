@@ -10,7 +10,7 @@ Use a concrete domain playbook while preserving provider gaps and role separatio
 2. Copy its inputs, maker/checker split, adapter dependencies, and stop conditions into a bounded brief.
 3. Verify the named artifact with an independent checker; do not substitute source text for a required renderer, browser, or execution environment.
 4. Link to a companion tool where stated instead of copying it; assess its license and installation separately.
-5. Mark uninspected source families inventory-needed rather than inferring behavior from a name.
+5. Mark uninspected source families unread and inspected ones without a tool port no-port, rather than inferring behavior from a name.
 ## Output and done check
 Done is a checked domain artifact or an explicit adapter/approval/lineage GAP.
 ## Failure handling

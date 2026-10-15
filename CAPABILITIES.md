@@ -5,13 +5,14 @@
 This map is a dated, source-grounded translation of the current operating model, not
 a runtime audit. **Workflow** means an inspected process that can be described here;
 **tool/adapter required** means a host-specific provider is needed; **missing port**
-means no corresponding public implementation exists; **inventory-needed** means an
-entry was observed but not inspected deeply enough to state behavior; **experimental**
-means staged or source-stated only; **excluded** means deliberately not public.
+means no corresponding public implementation exists; **no-port** means the entrypoint is known
+(observed, or inspected with a manual playbook) but has no public tool port, so
+routing refuses it rather than guessing; **experimental**
+means source-stated only; **excluded** means deliberately not public.
 Runtime missing is different from unread: neither is evidence that a capability runs.
 A short checklist is not automated routing or enforcement.
 
-The current local candidate exposes 18 skills, 6 roles, and 6 commands in
+This release exposes 18 skills, 6 roles, and 6 commands in
 [CATALOG.md](CATALOG.md). Its optional journal remains byte-identical to its recorded
 source copy; that identity is a packaging fact, not continuity automation.
 
@@ -41,8 +42,8 @@ the inspected source does not supply a portable policy; it is not an implicit de
 | Browser and external actions | **Trigger/input:** proposed external act and observed state. **Order/roles:** survey → proposal → independent review → state-bound approval → authorized deterministic act → receipt. **Done:** receipt matching approval. **Stop:** takeover prompt, mismatch, or absent browser/approval stops before submission. **Dependency:** browser/connector and recipient authorization. | **Workflow; missing adapter.** [safety](skills/safety/SKILL.md) is a boundary, not browser control or ledger. |
 | Discovery and bootstrap | **Trigger/input:** confirmed project intent/location. **Order/roles:** coordinator confirms → inventories instructions/memory → scaffolds/registers where adapters exist → verifier checks → snapshots. **Done:** verified inventory/scaffold evidence. **Stop:** existing/ambiguous state is not guessed. **Dependency:** templates, registry, and checker. | **Workflow; partial asset.** [discovery](skills/discovery/SKILL.md) and [workspace](skills/workspace/SKILL.md); general bootstrap/register/verify ports missing. |
 | Memory and instructions | **Trigger/input:** curated memory/instruction inventory. **Order/roles:** deterministic linter checks links/paths/index/freshness; operator distinguishes dry-run from apply. **Done:** check report or bounded applied repair. **Stop:** unclear scope/failing integrity check blocks health claim. **Dependency:** memory store and linter. | **Workflow; partial tool.** Report-only [memory_check.py](skills/discovery/scripts/memory_check.py) checks links/index/freshness; no store, repair automation or native gate. |
-| Scout and provenance | **Trigger/input:** need for a reusable capability. **Order/roles:** scout inventories local options → searches sources → vets security/provenance/license → records use/fork/create/reject disposition. **Done:** evidence-backed disposition. **Stop:** unknown provenance/license stays unresolved. **Dependency:** local inventory and search sources. | **Inspected generic workflow; report-only process.** [operations](skills/operations/SKILL.md) supplies no scout/search automation; the named `skill-scout` entrypoint has a manual [playbook](skills/specialist-journeys/playbooks.md) but no tool port, so `scripts/route.py` refuses it as inventory-needed. |
-| Retro and promotion | **Trigger/input:** bounded session evidence and candidate pattern. **Order/roles:** reviewer identifies candidate → tests repetition/outcome/delta → deduplicates → submits for approval. **Done:** approved promotion or rejected/parked candidate. **Stop:** insufficient repetition/evidence prevents promotion. **Dependency:** session records and approver. | **Inspected generic workflow; report-only process.** [operations](skills/operations/SKILL.md) never rewrites rules automatically; named `retro` and `instinct-promote` have manual [playbooks](skills/specialist-journeys/playbooks.md) but no tool port, so `scripts/route.py` refuses them as inventory-needed. |
+| Scout and provenance | **Trigger/input:** need for a reusable capability. **Order/roles:** scout inventories local options → searches sources → vets security/provenance/license → records use/fork/create/reject disposition. **Done:** evidence-backed disposition. **Stop:** unknown provenance/license stays unresolved. **Dependency:** local inventory and search sources. | **Inspected generic workflow; report-only process.** [operations](skills/operations/SKILL.md) supplies no scout/search automation; the named `skill-scout` entrypoint has a manual [playbook](skills/specialist-journeys/playbooks.md) but no tool port, so `scripts/route.py` refuses it as no-port. |
+| Retro and promotion | **Trigger/input:** bounded session evidence and candidate pattern. **Order/roles:** reviewer identifies candidate → tests repetition/outcome/delta → deduplicates → submits for approval. **Done:** approved promotion or rejected/parked candidate. **Stop:** insufficient repetition/evidence prevents promotion. **Dependency:** session records and approver. | **Inspected generic workflow; report-only process.** [operations](skills/operations/SKILL.md) never rewrites rules automatically; named `retro` and `instinct-promote` have manual [playbooks](skills/specialist-journeys/playbooks.md) but no tool port, so `scripts/route.py` refuses them as no-port. |
 | Generic writing | **Trigger/input:** purpose, register, and factual sources. **Order/roles:** writer drafts; reviewer checks fidelity, bounded diagnosis, and intentional choices. **Done:** disclosed draft/review outcome. **Stop:** unknown fact remains unknown; no automatic send/publish/train/rerender. **Dependency:** recipient-selected writer/reviewer. | **Workflow; excluded personal layer.** Calibration, samples, and engines are absent. |
 | Documents and formats | **Trigger/input:** requested format and existing artifact/revision. **Order/roles:** select provider/editor → create/edit/read → render/package/formula inspect. **Done:** inspected requested format. **Stop:** missing provider stops; existing cloud file is not recreated blindly. **Dependency:** format-specific tool/connector. | **Workflow; adapter required.** Word, PDF, spreadsheet, presentation, and cloud implementations are not bundled. |
 | Code, security, debugging, domain quality | **Trigger/input:** decided change, defect evidence, security concern, or domain scenario. **Order/roles:** builder prefers reuse/standard facilities; debugger reproduces before hypothesis; security reviewer separates new-code safeguards from existing-code review; domain reviewer compares terms/scenarios. **Done:** behavior evidence or contradiction/UNKNOWN record. **Stop:** meaning change, unproved root cause, or unreviewed risk returns to decision. **Dependency:** tests and specialist review. | **Workflow; partial/missing ports.** [execution](skills/execution/SKILL.md), [review](skills/review/SKILL.md), and security role are generic; detailed ports/enforcement missing. |
@@ -71,13 +72,13 @@ the missing native runtime layers:
   project setup, scouting, retro, instinct promotion and memory promotion; the
   playbooks are manual, do not bundle their tools, search services, rendering or
   approval enforcement, and `scripts/route.py` still refuses these entrypoints as
-  inventory-needed rather than routing them automatically.
+  no-port rather than routing them automatically.
 
-## Inventory-needed and excluded boundary
+## No-port, unread and excluded boundary
 
 Other memory entrypoints and any uninspected specialist instructions remain
-inventory-needed; do not infer their detailed behavior from a generic family
-description. Staged research project/synthesis entries remain experimental,
+unread; do not infer their detailed behavior from a generic family
+description. Research project/synthesis entries remain experimental,
 not active implemented routes. Source-inspected is distinct from runtime-ported.
 
 Disabled/retired entries are provenance, not missing public ports. Private accounts,

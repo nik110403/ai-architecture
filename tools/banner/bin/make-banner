@@ -1,0 +1,231 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["fonttools>=4.50", "brotli>=1.1"]
+# ///
+"""make-banner: README banner (eyebrow + title, light/dark SVG), social preview PNG, terminal-transcript SVGs.
+
+Fonts (Fraunces, Atkinson Hyperlegible, Space Grotesk; SIL OFL 1.1) are embedded as
+data-URI @font-face, because GitHub renders README SVGs through <img>, where external
+fonts are blocked. Fonts live in ../fonts relative to this file (override: --fonts-dir).
+"""
+import argparse, base64, html, io, pathlib, shutil, subprocess, sys, tempfile
+from fontTools.ttLib import TTFont
+
+HERE = pathlib.Path(__file__).resolve().parent
+FONTS = {"display": "Fraunces-SemiBold", "body": "AtkinsonHyperlegible-Regular", "label": "SpaceGrotesk-Medium"}
+FAMILY = {"display": "Fraunces", "body": "Atkinson Hyperlegible", "label": "Space Grotesk"}
+THEMES = {
+    "light": dict(paper="#faf7f2", ink="#1c1917", soft="#57534e", accent="#8c2f1b"),
+    "dark": dict(paper="#0f0d0a", ink="#f1ece2", soft="#b9b0a3", accent="#e2855f"),
+}
+
+
+class Metrics:
+    def __init__(self, path):
+        f = TTFont(path)
+        self.cmap, self.hmtx, self.upm = f.getBestCmap(), f["hmtx"], f["head"].unitsPerEm
+
+    def width(self, text, size, tracking=0.0):
+        w = sum(self.hmtx[self.cmap.get(ord(c), ".notdef")][0] for c in text) / self.upm * size
+        return w + tracking * len(text)
+
+
+def wrap(text, m, size, max_w):
+    lines, cur = [], ""
+    for word in text.split():
+        trial = (cur + " " + word).strip()
+        if cur and m.width(trial, size) > max_w:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = trial
+    return lines + ([cur] if cur else [])
+
+
+def font_css(fonts_dir):
+    css = ""
+    for role, stem in FONTS.items():
+        b64 = base64.b64encode((fonts_dir / f"{stem}.woff2").read_bytes()).decode()
+        css += f"@font-face{{font-family:'{FAMILY[role]}';src:url(data:font/woff2;base64,{b64}) format('woff2');}}"
+    return css
+
+
+def figure_uri(path):
+    p = pathlib.Path(path)
+    mime = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}[p.suffix.lower()]
+    return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
+
+
+def compose(a, theme, w, h, m, fonts_css):
+    """One layout, scaled: s = h/320 for the banner, social preview uses its own proportions."""
+    t = THEMES[theme]
+    accent = t["accent"]
+    social = h > 400
+    s = 1.0 if not social else 1.6
+    pad = 64 * (1.0 if not social else 1.25)
+    fig_w = (0.30 if not social else 0.34) * w if a.figure else 0
+    text_w = w - 2 * pad - (fig_w + pad * 0.6 if a.figure else 0)
+    eyebrow = (a.eyebrow or ("Replication package" if a.kind == "research" else "Open source")).upper()
+    rule_y = h - 48 * s
+    top = 52 * s
+    foot_y = h - 20 * s
+    t_size = (58 if not social else 92)
+    tag_size = 21 * s
+    while True:
+        lines = wrap(a.title, m["display"], t_size, text_w)
+        t_lh = t_size * 1.14
+        tag_lines = wrap(a.tagline, m["body"], tag_size, text_w)[:2]
+        y_eyebrow = top + 14 * s
+        y_title = y_eyebrow + 26 * s + t_size * 0.82
+        y_tag = y_title + (len(lines) - 1) * t_lh + 30 * s + tag_size * 0.8
+        bottom = y_tag + (len(tag_lines) - 1) * tag_size * 1.4
+        if bottom <= rule_y - 22 * s or t_size <= 30:
+            break
+        t_size -= 2
+    dy = max(0.0, (rule_y - 22 * s - bottom)) * 0.5
+    top, y_eyebrow, y_title, y_tag = top + dy, y_eyebrow + dy, y_title + dy, y_tag + dy
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-label="{html.escape(a.title)}: {html.escape(a.tagline)}">',
+           f'<title>{html.escape(a.title)}</title><style>{fonts_css}</style>',
+           f'<rect width="{w}" height="{h}" fill="{t["paper"]}"/>',
+           f'<rect x="{pad}" y="{top - 20 * s}" width="{44 * s:.0f}" height="{4 * s:.0f}" fill="{accent}"/>']
+    ey = f'font-family="Space Grotesk, sans-serif" font-weight="500" font-size="{13 * s:.1f}" letter-spacing="{2.6 * s:.1f}"'
+    out.append(f'<text x="{pad}" y="{y_eyebrow:.1f}" {ey} fill="{accent}">{html.escape(eyebrow)}</text>')
+    for i, ln in enumerate(lines):
+        out.append(f'<text x="{pad}" y="{y_title + i * t_lh:.1f}" font-family="Fraunces, serif" font-weight="600" font-size="{t_size}" fill="{t["ink"]}">{html.escape(ln)}</text>')
+    for i, ln in enumerate(tag_lines):
+        out.append(f'<text x="{pad}" y="{y_tag + i * tag_size * 1.4:.1f}" font-family="Atkinson Hyperlegible, sans-serif" font-size="{tag_size:.1f}" fill="{t["soft"]}">{html.escape(ln)}</text>')
+    out.append(f'<line x1="{pad}" y1="{rule_y:.1f}" x2="{w - pad}" y2="{rule_y:.1f}" stroke="{t["ink"]}" stroke-opacity="0.22" stroke-width="1"/>')
+    ft = f'font-family="Space Grotesk, sans-serif" font-weight="500" font-size="{12 * s:.1f}" letter-spacing="{1.6 * s:.1f}" fill="{t["soft"]}"'
+    out.append(f'<text x="{pad}" y="{foot_y:.1f}" {ft}>{html.escape(a.footer.upper())}</text>')
+    if a.figure:
+        fx, fy = w - pad - fig_w, top
+        fh = rule_y - 22 * s - fy - 22 * s
+        out.append(f'<rect x="{fx:.1f}" y="{fy:.1f}" width="{fig_w:.1f}" height="{fh + 22 * s:.1f}" fill="none" stroke="{t["ink"]}" stroke-opacity="0.22"/>')
+        out.append(f'<image x="{fx + 8:.1f}" y="{fy + 8:.1f}" width="{fig_w - 16:.1f}" height="{fh - 8:.1f}" preserveAspectRatio="xMidYMid meet" href="{figure_uri(a.figure)}"/>')
+        out.append(f'<text x="{fx + 8:.1f}" y="{fy + fh + 16 * s:.1f}" {ft}>FIGURE 1</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def compose_banner(a, theme, w, m, fonts_css):
+    """README banner: eyebrow + title only. Sized so type stays >= 11px effective at a 375px viewport."""
+    t = THEMES[theme]
+    accent = t["accent"]
+    pad = 64
+    eyebrow = (a.eyebrow or ("Replication package" if a.kind == "research" else "Open source")).upper()
+    ey_size, ey_track = 42, 5.0
+    t_size = 92
+    while True:
+        lines = wrap(a.title, m["display"], t_size, w - 2 * pad)
+        if len(lines) == 1 or t_size <= 60:
+            break
+        t_size -= 4
+    t_lh = t_size * 1.1
+    y_eyebrow = 38 + ey_size * 0.75
+    y_title = y_eyebrow + 22 + t_size * 0.8
+    h = int(y_title + (len(lines) - 1) * t_lh + t_size * 0.3 + 30)
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-label="{html.escape(a.title)}">',
+           f'<title>{html.escape(a.title)}</title><style>{fonts_css}</style>',
+           f'<rect width="{w}" height="{h}" fill="{t["paper"]}"/>',
+           f'<rect x="{pad}" y="0" width="56" height="8" fill="{accent}"/>',
+           f'<text x="{pad}" y="{y_eyebrow:.1f}" font-family="Space Grotesk, sans-serif" font-weight="500" font-size="{ey_size}" letter-spacing="{ey_track}" fill="{accent}">{html.escape(eyebrow)}</text>']
+    for i, ln in enumerate(lines):
+        out.append(f'<text x="{pad}" y="{y_title + i * t_lh:.1f}" font-family="Fraunces, serif" font-weight="600" font-size="{t_size}" fill="{t["ink"]}">{html.escape(ln)}</text>')
+    out.append("</svg>")
+    return "\n".join(out), h
+
+
+def compose_transcript(lines, theme, w=620):  # 20px font * 375/620 = 12.1px effective at a 375 viewport
+    """Static terminal transcript: lines starting '$ ' are prompts (accent), '#' lines are soft, rest ink."""
+    t = THEMES[theme]
+    fs, lh, pad = 20, 32, 40
+    cw = fs * 0.6
+    maxc = int((w - 2 * pad) / cw)
+    rows = []
+    for ln in lines:
+        ln = ln.rstrip("\n").replace("\t", "    ")
+        chunks = [ln[i:i + maxc] for i in range(0, len(ln), maxc)] or [""]
+        rows += [(ln, c) for c in chunks]
+    bar = 44
+    h = bar + pad + len(rows) * lh + pad - 8
+    panel = {"light": "#f2ede4", "dark": "#171410"}[theme]
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img" aria-label="Terminal transcript">',
+           f'<rect width="{w}" height="{h}" fill="{t["paper"]}"/>',
+           f'<rect x="1" y="1" width="{w - 2}" height="{h - 2}" fill="{panel}" stroke="{t["ink"]}" stroke-opacity="0.22"/>',
+           f'<rect x="1" y="1" width="{w - 2}" height="6" fill="{t["accent"]}"/>']
+    mono = 'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, \'DejaVu Sans Mono\', monospace"'
+    for i, (full, c) in enumerate(rows):
+        y = bar + pad / 2 + i * lh + fs
+        if full.startswith("$ "):
+            fill, wt = t["accent"], "600"
+        elif full.startswith("#"):
+            fill, wt = t["soft"], "400"
+        else:
+            fill, wt = t["ink"], "400"
+        out.append(f'<text x="{pad}" y="{y:.0f}" {mono} font-size="{fs}" font-weight="{wt}" fill="{fill}" xml:space="preserve">{html.escape(c)}</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def chrome_bin():
+    for n in ("google-chrome", "chromium", "chromium-browser", "chrome"):
+        p = shutil.which(n)
+        if p:
+            return p
+
+
+def render_png(svg_text, w, h, dest):
+    chrome = chrome_bin()
+    if not chrome:
+        print("make-banner: no Chrome/Chromium found; skipping social-preview.png", file=sys.stderr)
+        return False
+    with tempfile.TemporaryDirectory() as td:
+        page = pathlib.Path(td) / "p.html"
+        page.write_text(f'<!doctype html><meta charset="utf-8"><body style="margin:0">{svg_text}</body>')
+        subprocess.run([chrome, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
+                        f"--window-size={w},{h}", f"--screenshot={dest}", f"file://{page}"],
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+    return True
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p.add_argument("--title", default="")
+    p.add_argument("--tagline", default="")
+    p.add_argument("--transcript", default="", help="text file -> assets/transcript-{light,dark}.svg (lines starting '$ ' are prompts)")
+    p.add_argument("--kind", choices=["research", "project"], default="project")
+    p.add_argument("--eyebrow", default="")
+    p.add_argument("--footer", default="nikkhosravipour.com")
+    p.add_argument("--figure", default="", help="optional PNG/SVG shown as 'Figure 1' on the social preview only")
+    p.add_argument("--out-dir", default="assets")
+    p.add_argument("--fonts-dir", default=str(HERE.parent / "fonts"))
+    p.add_argument("--no-png", action="store_true")
+    a = p.parse_args()
+    if a.figure and not pathlib.Path(a.figure).is_file():
+        a.figure = ""
+    fonts_dir = pathlib.Path(a.fonts_dir)
+    m = {r: Metrics(fonts_dir / f"{stem}.woff2") for r, stem in FONTS.items()}
+    css = font_css(fonts_dir)
+    out = pathlib.Path(a.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    if a.transcript:
+        lines = pathlib.Path(a.transcript).read_text().splitlines()
+        for theme in ("light", "dark"):
+            (out / f"transcript-{theme}.svg").write_text(compose_transcript(lines, theme))
+            print(f"wrote {out / f'transcript-{theme}.svg'}")
+    if not a.title:
+        return
+    if not a.tagline:
+        p.error("--tagline is required with --title")
+    for theme in ("light", "dark"):
+        svg, _ = compose_banner(a, theme, 1280, m, css)
+        (out / f"banner-{theme}.svg").write_text(svg)
+        print(f"wrote {out / f'banner-{theme}.svg'} ({len(svg) // 1024} KB)")
+    if not a.no_png:
+        svg = compose(a, "light", 1280, 640, m, css)
+        if render_png(svg, 1280, 640, str(out / "social-preview.png")):
+            print(f"wrote {out / 'social-preview.png'}")
+
+if __name__ == "__main__":
+    main()

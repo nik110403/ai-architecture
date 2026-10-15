@@ -1,6 +1,6 @@
 # Install
 
-This release identifies itself as `0.3.0-preview` in its manifest. The marketplace
+This release identifies itself as `0.3.1-preview` in its manifest. The marketplace
 commands below install it; local loading works the same way and is described below.
 What each capability does and does not cover is in [CAPABILITIES.md](CAPABILITIES.md).
 
@@ -13,7 +13,7 @@ The repository root is the marketplace root:
 /plugin install ai-architecture@ai-architecture
 ```
 
-For the local candidate, replace `PATH` below with the absolute collection directory
+To load the collection locally, replace `PATH` below with the absolute collection directory
 (not the recipient project). Local loading is not a global install:
 
 ```sh

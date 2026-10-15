@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1-preview — 2026-10-15
+
+- Renamed the route and status label for known entrypoints without a tool port to `no-port` (it also covers entrypoints with a manual playbook); `scripts/route.py` constant is now `NO_PORT`. Where text meant "not inspected" it says `unread`.
+- README and licence presentation per the public repository template: banner, showcase structure, `LICENSE-docs` (CC BY 4.0), `CITATION.cff`, `.markdownlint.yaml`.
+- Added `tools/banner/` and generated `assets/` (banner light/dark, social preview).
+- `scripts/check_collection.py` now requires the new files.
+
 ## 0.3.0-preview — 2026-10-15
 
 - Whole-system map: CAPABILITIES.md and WORKFLOWS.md map the capability families, their workflows and implementation status, including named gaps and inventory-needed entrypoints.

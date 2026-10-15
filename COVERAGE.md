@@ -1,8 +1,8 @@
 # Coverage and compatibility
 
-## Expanded candidate checks
+## Expanded checks
 
-The expanded assets remain a local candidate. Independent review passed the
+The expanded assets are part of this release. Independent review passed the
 continuity snapshot checker (10 focused tests), five specialist manual playbooks
 (12 source entrypoints inspected), and copied-recipient adoption (3 tests).
 The checker-outcome report's six tests passed after correcting a stale fixture
@@ -32,8 +32,8 @@ memory enforcement. This limitation remains open; passing fixture tests do not
 certify the broader whole-system translation.
 
 
-Candidate execution observations on a local Linux test host, 2026-10-15, for release
-`0.3.0-preview`.
+Execution observations on a local Linux test host, 2026-10-15, for release
+`0.3.1-preview`.
 These are deterministic checks, not evidence of agent performance or benefits.
 
 All runtime commands below were executed from the collection root.
@@ -45,7 +45,7 @@ strict validator also used the absolute equivalents.
 | Offline structure | `python3 -B scripts/check_collection.py`: PASS, 18 skills / 6 roles / 6 commands | Exact inventories/catalog, local links, manifests, and static regular-file/escape/symlink paths. Not exhaustive YAML/Markdown or a security race proof. |
 | Negative fixtures | Current collection-root discovery: 39 tests, OK; earlier 35-test timing was a historical run | Temporary copies plus typed route availability, whole-word/explicit intent selection, conditional external approval, bounded review disposition, pending/unknown lifecycle, and copied recipient bundles. No real-user project or real-agent trial. |
 | Parser fixture | `python3 -B -m unittest discover -s examples/worked-example/tests -v`: 5 tests, OK (0.001s) | Real parser/checker artifacts; empty, nonempty, malformed, nontext and list independence. Authored handoff records, not an AI builder/checker transcript. |
-| System journey | `python3 -B examples/system-journey/run.py`: PASS | Authored route/brief/result/check/recovery fixture with inventory-needed and pending-job refusals; no provider discovery, dispatch, or Next execution. |
+| System journey | `python3 -B examples/system-journey/run.py`: PASS | Authored route/brief/result/check/recovery fixture with no-port and pending-job refusals; no provider discovery, dispatch, or Next execution. |
 | Continuity fixture | `python3 -B examples/continuity/run.py`: `persisted Next executed: PASS (summary total=10)` | Temporary-directory fixed action, with fresh check/Next/verify processes. No arbitrary Next execution or production concurrency trial. |
 | Journal copy | SHA-256 of source and shipped copy both `71a60f8f562f1e74a45396e0a26bf8111a86a0b38130298a5629167a9f3e686a` | Byte identity observed. Example source comparison showed only TOOL path resolution changed. |
 | Claude schema | `claude plugin validate --strict .`, plus `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`: all passed | CLI schema checks, not plugin installation/loading. Initial marketplace warning about missing description was fixed; final validation passed. Non-verdict README installation advice remained. |

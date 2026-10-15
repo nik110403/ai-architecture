@@ -78,7 +78,7 @@ def main():
             check=True,
         )
     print(
-        "system journey: PASS (happy route, inventory-needed/critical/pending refusals, fresh-process data-only Next)"
+        "system journey: PASS (happy route, no-port/critical/pending refusals, fresh-process data-only Next)"
     )
 
 

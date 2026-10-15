@@ -6,7 +6,7 @@ description: Report a conservative route from an explicit intent and explicit av
 ## Objective
 Choose a bounded process without pretending to discover providers, permissions, or models.
 ## Steps
-1. Classify one intent; unknown, mixed, and inventory-needed families stop for clarification.
+1. Classify one intent; unknown, mixed, and no-port families stop for clarification.
 2. List stable capability IDs, maker/checker roles, configured model order, and required adapters.
 3. Optionally run the exact bundle in [DEPENDENCIES.md](DEPENDENCIES.md) with only caller-supplied availability. It performs no dispatch, installation, network access, or discovery.
 4. Refuse a COMPLETE route when a critical capability, checker model role, unread family, pending job, or unknown arrival is present.

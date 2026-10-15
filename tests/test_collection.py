@@ -171,7 +171,7 @@ class CollectionTests(unittest.TestCase):
 
     def test_manifest_bad_version(self):
         self.corrupt(
-            ".claude-plugin/plugin.json", "0.2.0-preview", "nonsense", "name/version"
+            ".claude-plugin/plugin.json", "0.3.0-preview", "nonsense", "name/version"
         )
 
     def test_manifest_duplicate_key(self):

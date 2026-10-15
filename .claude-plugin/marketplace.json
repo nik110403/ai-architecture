@@ -1,6 +1,6 @@
 {
   "name": "ai-architecture",
-  "metadata": {"description": "Project-local workflows, roles, templates, and offline checks.", "version": "0.2.0-preview"},
+  "metadata": {"description": "Whole-system agent workflows: routing, review, continuity, memory, loops, evaluation and specialist skills, with offline checks.", "version": "0.3.0-preview"},
   "owner": {"name": "Nik", "url": "https://github.com/nik110403"},
-  "plugins": [{"name": "ai-architecture", "version": "0.2.0-preview", "source": "./"}]
+  "plugins": [{"name": "ai-architecture", "version": "0.3.0-preview", "source": "./"}]
 }

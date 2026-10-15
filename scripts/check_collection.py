@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = set(
-    "planning execution delegation context continuity review evaluation workspace design research safety maintenance".split()
+    "planning execution delegation context continuity review evaluation workspace design research safety maintenance routing convergence lifecycle discovery operations specialist-journeys".split()
 )
 ROLES = set(
     "builder verifier refuter researcher security-reviewer design-critic".split()
@@ -24,7 +24,7 @@ ROOT_DOCS = set(
     "README.md INSTALL.md CATALOG.md COVERAGE.md CONTRIBUTING.md CHANGELOG.md AGENTS.md LICENSE LICENSES.md".split()
 )
 TEMPLATES = set(
-    "plan.md work-item.md resume.md worker-brief.md worker-result.md review.md measurement.md maintenance.md".split()
+    "plan.md work-item.md resume.md worker-brief.md worker-result.md review.md measurement.md maintenance.md route-report.md lifecycle-record.md panel-review.md".split()
 )
 NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 LINK = re.compile(r"\[[^\]\n]*\]\(([^\s)]+)\)")
@@ -157,7 +157,7 @@ def manifests():
         "author",
     }:
         fail("plugin schema fields mismatch")
-    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.2.0-preview":
+    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.3.0-preview":
         fail("plugin name/version mismatch")
     if (
         not isinstance(plugin["description"], str)
@@ -295,7 +295,7 @@ def main():
         dependencies(path)
     manifests()
     print(
-        "PASS: 12 skills, 6 roles, 6 commands; catalog, scalar metadata, local dependencies, manifests and static path checks"
+        "PASS: 18 skills, 6 roles, 6 commands; catalog, scalar metadata, local dependencies, manifests and static path checks"
     )
 
 

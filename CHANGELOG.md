@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0-preview — 2026-10-15
+
+- Whole-system map: CAPABILITIES.md and WORKFLOWS.md map the capability families, their workflows and implementation status, including named gaps and inventory-needed entrypoints.
+- Eighteen skills: added routing, convergence, lifecycle, discovery, operations and specialist journeys.
+- Report-only routing CLI (`scripts/route.py`) with a connected system-journey example; unread entrypoints and unknown routes refuse instead of guessing.
+- Standalone offline tools: memory/index report-only check, loop wiring snapshot, receipt/usage report, checker-verdict joins, continuity evidence validator and a manual context-manifest compiler.
+- Selective-adoption fixture that copies single bundles into a fresh recipient root.
+- License text restored to the full MIT wording.
+
 ## 0.2.0-preview — 2026-10-15
 
 - Added a standalone, portable collection with Claude plugin metadata, twelve self-contained skills, roles, commands, templates, adapters, examples, and offline validation.

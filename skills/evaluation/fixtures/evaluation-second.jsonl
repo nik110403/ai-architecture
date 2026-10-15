@@ -1,0 +1,3 @@
+{"schema_version":1,"t":20,"task_id":"maker-b","source":"fixture","harness":"beta","role":"implementer","model":"m3","charge_id":"b"}
+{"schema_version":1,"t":21,"task_id":"check-b","source":"fixture","harness":"beta","role":"security-reviewer","model":"m4","charge_id":"b","verify":"pass"}
+{"schema_version":1,"t":null,"task_id":"check-b-unknown","source":"fixture","harness":"beta","role":"security-reviewer","model":"m4","charge_id":"b","verify":"fail"}

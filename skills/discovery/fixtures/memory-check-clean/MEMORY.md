@@ -1,0 +1,3 @@
+# Index
+
+- [Note](note.md)

@@ -14,6 +14,12 @@
 | [research](skills/research/SKILL.md) | source-bounded research | [source-note.md](skills/research/source-note.md) |
 | [safety](skills/safety/SKILL.md) | checking action boundaries | [action-boundary.md](skills/safety/action-boundary.md) |
 | [maintenance](skills/maintenance/SKILL.md) | routine upkeep with evidence | [maintenance.md](skills/maintenance/maintenance.md) |
+| [routing](skills/routing/SKILL.md) | reporting a conservative route | [route-report.md](templates/route-report.md) |
+| [convergence](skills/convergence/SKILL.md) | bounded multi-lens review | [panel-review.md](templates/panel-review.md) |
+| [lifecycle](skills/lifecycle/SKILL.md) | pending results and safe handoff | [lifecycle-record.md](templates/lifecycle-record.md) |
+| [discovery](skills/discovery/SKILL.md) | instructions, memory, and project inventory | [report-only memory check](skills/discovery/scripts/memory_check.py) |
+| [operations](skills/operations/SKILL.md) | drift, loops, scout, retro, promotion | local process only |
+| [specialist-journeys](skills/specialist-journeys/SKILL.md) | dependency-explicit specialist work | [playbooks.md](skills/specialist-journeys/playbooks.md) |
 
 ## Roles
 
@@ -34,3 +40,7 @@
 - [health](commands/health.md): `/ai-architecture:health`
 
 The optional journal is a local companion utility, not required for the continuity skill. A separate companion research-kit may supply domain-specific research tooling; this collection's research skill remains usable without it.
+
+For the broader operating-model map, statuses, and unported dependencies, see
+[CAPABILITIES.md](CAPABILITIES.md) and [WORKFLOWS.md](WORKFLOWS.md). This catalog has
+18 skills, 6 roles, and 6 commands. Router reports do not create native enforcement.

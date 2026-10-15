@@ -1,0 +1,4 @@
+{"schema_version":1,"t":10,"task_id":"complete","source":"fixture","harness":"h","role":"r","model":"m","verify":"pass","tok_source":"agent","in_tok":1,"out_tok":2,"reasoning_tok":3,"cache_read_tok":4,"cache_write_tok":5,"cost_usd":0,"dur_ms":10}
+{"schema_version":1,"t":11,"task_id":"partial","source":"fixture","harness":"h","role":"r","model":"m","tok_source":"agent","in_tok":0,"out_tok":2,"reasoning_tok":null,"cache_read_tok":null,"cache_write_tok":null,"cost_usd":1.5,"dur_ms":20}
+{"schema_version":1,"t":12,"task_id":"missing","source":"fixture","harness":"h","role":"r","model":"m"}
+{"schema_version":1,"t":13,"task_id":"fallback","source":"fixture","harness":"h","role":"r","model":"m","tok_source":"main-fallback","in_tok":9,"out_tok":9,"reasoning_tok":9,"cache_read_tok":9,"cache_write_tok":9,"cost_usd":2,"dur_ms":30}

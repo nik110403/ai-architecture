@@ -1,0 +1,8 @@
+{"schema_version":1,"t":10,"task_id":"maker-a","source":"fixture","harness":"alpha","role":"implementer--terra","model":"m1","charge_id":"a"}
+{"schema_version":1,"t":11,"task_id":"check-a-old","source":"fixture","harness":"alpha","role":"verifier--terra","model":"m2","charge_id":"a","verify":"pass"}
+{"schema_version":1,"t":12,"task_id":"check-a-tie-1","source":"fixture","harness":"alpha","role":"verifier--terra","model":"m2","charge_id":"a","verify":"pass"}
+{"schema_version":1,"t":12,"task_id":"check-a-tie-2","source":"fixture","harness":"alpha","role":"verifier--terra","model":"m2","charge_id":"a","verify":"fail"}
+{"schema_version":1,"t":13,"task_id":"maker-null","source":"fixture","harness":"alpha","role":"design-builder","model":"m1","charge_id":null}
+{"schema_version":1,"t":14,"task_id":"maker-missing","source":"fixture","harness":"alpha","role":"implementer","model":"m1"}
+{"schema_version":1,"t":null,"task_id":"check-unknown","source":"fixture","harness":"alpha","role":"design-critic","model":"m2","charge_id":"a","verify":"pass"}
+{"schema_version":1,"t":15,"task_id":"check-unmatched","source":"fixture","harness":"alpha","role":"refuter","model":"m2","charge_id":"orphan","verify":"pass"}

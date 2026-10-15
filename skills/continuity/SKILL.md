@@ -11,6 +11,11 @@ Leave a small, evidence-backed handoff rather than relying on conversational mem
 3. Write one exact next action a fresh worker can execute.
 4. Save the record with [resume.md](resume.md), or optionally use `scripts/journal.py` for a local JSON journal.
 5. Re-read the record in a fresh process or context before trusting it.
+
+Optionally use [continuity-check.md](continuity-check.md) to compare an explicit
+tracker with a caller-supplied hash/mtime/job receipt. CONSISTENT means those
+declared inputs agree; it does not authenticate edit history or certify native
+readiness, semantic completion, or safe concurrent writes.
 ## Output and done check
 Done means evidence is nonempty, active work is explicit, and Next is actionable without interpretation.
 ## Failure handling

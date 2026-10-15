@@ -1,12 +1,12 @@
 # Install
 
-**0.2.0 candidate NOT PUBLISHED.** The manifest version is `0.2.0-preview`.
-The current remote contains the old preview, not this collection. The following
-marketplace instructions are for a future publication, not an installation receipt.
+This release identifies itself as `0.3.0-preview` in its manifest. The marketplace
+commands below install it; local loading works the same way and is described below.
+What each capability does and does not cover is in [CAPABILITIES.md](CAPABILITIES.md).
 
 ## Claude Code
 
-When this collection is published at the marketplace root:
+The repository root is the marketplace root:
 
 ```text
 /plugin marketplace add nik110403/ai-architecture
@@ -33,7 +33,10 @@ unverified here. Manually merge chosen rules; do not overwrite settings or rules
 ## Selective skill adoption
 
 Choose one skill from [CATALOG.md](CATALOG.md). Copy the **entire**
-`skills/<name>` directory, including assets and scripts, to one project-local destination:
+`skills/<name>` directory, including assets and scripts, to one project-local destination.
+Some skills deliberately declare a small root-level record/tool bundle in their local
+dependency manifest; copy that exact bundle too. The routing bundle is
+`scripts/route.py` plus `templates/route-report.md`; it is optional for manual use:
 
 | Harness | Destination |
 | --- | --- |
@@ -55,6 +58,10 @@ else
 fi
 ```
 
+For routing, after the collision check also copy `scripts/route.py` to `scripts/` and
+`templates/route-report.md` to `templates/`, refusing each collision. Do not assume a
+single copied skill directory contains collection-root utilities.
+
 For Codex replace `DEST` with `.agents/skills/planning` and the parent passed to
 `mkdir` with `.agents/skills`; for OpenCode use `.opencode/skills/planning` and
 `.opencode/skills`. Never copy over an existing skill directory. Inspect collisions
@@ -62,6 +69,8 @@ and merge manually. Do not replace project instructions, settings, or rules.
 Role and command files are Claude-native metadata plus instruction bodies; other
 harnesses require deliberate native configuration/manual adaptation, not universal
 agent import. See [Codex](adapters/codex.md) and [OpenCode](adapters/opencode.md).
+For whole-system intent, read [WORKFLOWS.md](WORKFLOWS.md) first: it identifies
+missing routers, adapters, and specialist ports rather than hiding them as dependencies.
 
 ## Verify offline
 
@@ -70,6 +79,7 @@ Run from the collection root, not the recipient project:
 ```sh
 python3 -B scripts/check_collection.py
 python3 -B -m unittest discover -s tests -v
+python3 -B examples/system-journey/run.py
 python3 -B examples/continuity/run.py
 python3 -B -m unittest discover -s examples/worked-example/tests -v
 ```

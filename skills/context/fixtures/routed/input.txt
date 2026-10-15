@@ -1,0 +1,1 @@
+Fixture bytes are sized, never interpreted or executed.

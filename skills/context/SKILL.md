@@ -11,6 +11,11 @@ Preserve only facts needed to act, distinguish them from assumptions, and point 
 3. Record active constraints, excluded scope, and the smallest next action.
 4. Remove conversation history that is not needed to perform that action.
 5. Use [context-card.md](context-card.md) as the portable record.
+
+For a deterministic manual manifest from an explicit project's routing table, use
+[context-packet.md](context-packet.md) and its standalone script bundle. It reports
+admitted paths and size estimates; it does not load task bodies, dispatch agents,
+enforce a budget, or provide a verified native packet consumer.
 ## Output and done check
 Done means a new reader can start safely without asking what artifact is current.
 ## Failure handling

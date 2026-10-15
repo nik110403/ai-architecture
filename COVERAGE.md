@@ -33,7 +33,7 @@ certify the broader whole-system translation.
 
 
 Execution observations on a local Linux test host, 2026-10-15, for release
-`0.3.1-preview`.
+`0.3.2-preview`.
 These are deterministic checks, not evidence of agent performance or benefits.
 
 All runtime commands below were executed from the collection root.

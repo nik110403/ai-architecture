@@ -171,7 +171,7 @@ class CollectionTests(unittest.TestCase):
 
     def test_manifest_bad_version(self):
         self.corrupt(
-            ".claude-plugin/plugin.json", "0.3.1-preview", "nonsense", "name/version"
+            ".claude-plugin/plugin.json", "0.3.2-preview", "nonsense", "name/version"
         )
 
     def test_manifest_duplicate_key(self):
@@ -220,6 +220,48 @@ class CollectionTests(unittest.TestCase):
             )
         result = self.run_check(root)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    GOOD = (
+        "# Provenance\n\nSource: ~/.claude/skills/plan-pack/SKILL.md\n"
+        "Source-sha256: " + "a" * 64 + "\nState: adapted\n\n## Deltas\n\n- trimmed\n"
+    )
+
+    def ported(self, text, where="skills/ported-x"):
+        root = self.copied()
+        directory = root / where
+        directory.mkdir(parents=True)
+        (directory / "SKILL.md").write_text("not a normal skill\n", encoding="utf-8")
+        (directory / "PROVENANCE.md").write_text(text, encoding="utf-8")
+        return self.run_check(root)
+
+    def test_ported_skill_accepted(self):
+        result = self.ported(self.GOOD)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ported_tool_accepted(self):
+        result = self.ported(self.GOOD, "tools/ported-x")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ported_missing_state_rejected(self):
+        result = self.ported(self.GOOD.replace("State: adapted\n", ""))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("State", result.stderr)
+
+    def test_ported_missing_sha_rejected(self):
+        result = self.ported(self.GOOD.replace("a" * 64, "abc"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Source-sha256", result.stderr)
+
+    def test_ported_missing_deltas_rejected(self):
+        result = self.ported(self.GOOD.replace("- trimmed\n", ""))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Deltas", result.stderr)
+
+    def test_ported_home_path_rejected(self):
+        home = "/" + "home" + "/x/skills/y"
+        result = self.ported(self.GOOD.replace("~/.claude/skills/plan-pack", home))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("home-directory", result.stderr)
 
 
 if __name__ == "__main__":

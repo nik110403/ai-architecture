@@ -2,8 +2,14 @@
 
 ## Reading status
 
-This map is a dated, source-grounded translation of the current operating model, not
-a runtime audit. **Workflow** means an inspected process that can be described here;
+Ported entries (skills, roles, templates, tools) carry a `<entry>/PROVENANCE.md` with `Source:`,
+`Source-sha256:`, `State:` (`verbatim`, `adapted` or `re-authored`) and a `## Deltas`
+section; layout: `skills/<x>/`, `agents/<name>/`, `tools/<name>/` or
+`templates/<name>.PROVENANCE.md`. `scripts/check_collection.py` validates them.
+
+This map is a dated, partial extract of one working setup, not a complete
+translation and not a runtime audit. Only the scripts named in
+[README.md](README.md#what-runs-vs-what-is-described) run; everything else is described. **Workflow** means an inspected process that can be described here;
 **tool/adapter required** means a host-specific provider is needed; **missing port**
 means no corresponding public implementation exists; **no-port** means the entrypoint is known
 (observed, or inspected with a manual playbook) but has no public tool port, so
@@ -87,4 +93,4 @@ or third-party instructions are excluded.
 
 The deterministic [system journey](examples/system-journey/README.md) connects a
 happy route and refusal states to a fresh-process record. Selective assets remain the
-safe adoption unit; whole-system runtime parity remains open.
+safe adoption unit; whole-system runtime parity is not claimed and is not included.

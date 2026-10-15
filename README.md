@@ -4,7 +4,7 @@
 
 [Install](INSTALL.md) · [Catalog](CATALOG.md) · [Design decisions](#design-decisions) · [Site](https://nikkhosravipour.com)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.3.1--preview-57534e?style=flat)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.3.2--preview-57534e?style=flat)](CHANGELOG.md)
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,21 @@ Or copy a single directory such as `skills/planning/` into your project; see [IN
 
 ## Why it exists
 
-AI-assisted work drifts: scope widens, the worker grades its own output, and a session's state dies with its context. This collection is a generic translation of one personal operating system for that problem, so each piece is a small, checkable artifact instead of a framework. It does not run agents for you; it gives you the roles, briefs, checks and handoff records, and tells you honestly what your harness must still enforce.
+AI-assisted work drifts: scope widens, the worker grades its own output, and a session's state dies with its context. This collection is a partial, generic extract of one personal working setup: some pieces run, others are described, and several are not included. Each piece is a small, checkable artifact instead of a framework. It does not run agents for you; it gives you the roles, briefs, checks and handoff records, and tells you honestly what your harness must still enforce.
+
+## What runs vs what is described
+
+| Piece | State | Notes |
+|---|---|---|
+| Routing demo (`scripts/route.py`) | runnable | Offline demo of the routing decision; it reports, it is not an automatic router. |
+| Collection checker (`scripts/check_collection.py`) | runnable | Offline structure and link checks. |
+| Privacy scan (`scripts/privacy_scan.py`) | runnable | Flags private paths and host names in the tree. |
+| Skills | described | Instructions an agent follows. |
+| Roles and commands | described | Declarations for Claude Code; nothing enforces them. |
+| Continuity journal tool (`skills/continuity/scripts/journal.py`) | runnable | Small local script for saving and reading a handoff record. |
+| Automatic model routing and rotation | not included | |
+| Hook gates | not included | |
+| Maintenance loops | not included | |
 
 ## What's inside
 
@@ -74,7 +88,7 @@ flowchart TD
 ## Reuse it
 
 1. Run `python3 -B scripts/route.py --intent 'fix code test' --capabilities '{"capabilities":["code.builder","code.verifier"],"models":["builder","verifier"]}'` to get a report-only route.
-2. Copy `skills/planning/` or a self-contained specialist skill intact using [INSTALL.md](INSTALL.md). This is release `0.3.1-preview`.
+2. Copy `skills/planning/` or a self-contained specialist skill intact using [INSTALL.md](INSTALL.md). This is release `0.3.2-preview`.
 3. Give a worker `templates/worker-brief.md`; retain its result beside the work.
 4. Have a fresh checker use `skills/convergence/` or `skills/review/`.
 5. Record a data-only Next using `templates/lifecycle-record.md`.

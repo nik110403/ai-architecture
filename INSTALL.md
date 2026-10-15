@@ -1,6 +1,6 @@
 # Install
 
-This release identifies itself as `0.3.1-preview` in its manifest. The marketplace
+This release identifies itself as `0.3.2-preview` in its manifest. The marketplace
 commands below install it; local loading works the same way and is described below.
 What each capability does and does not cover is in [CAPABILITIES.md](CAPABILITIES.md).
 

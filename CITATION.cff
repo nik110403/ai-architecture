@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 type: software
 title: "ai-architecture"
 abstract: "Report-only routing, maker/checker review and resumable handoffs for AI-assisted work, as skills and offline tools you can copy."
-version: 0.3.1-preview
+version: 0.3.2-preview
 date-released: 2026-10-15
 authors:
   - family-names: Khosravipour

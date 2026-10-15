@@ -3,6 +3,17 @@
 
 Path checks reject static escapes/redirects, not concurrent filesystem races.
 No network, harness activation, or arbitrary Markdown/code interpretation.
+
+Ported class (exempt from the 5-heading rule and the exact skill/role/template
+inventories): a directory with a PROVENANCE.md inside it --
+  skills/<x>/PROVENANCE.md, agents/<name>/PROVENANCE.md (role file at
+  agents/<name>/<name>.md), tools/<name>/PROVENANCE.md --
+or templates/<name>.PROVENANCE.md beside templates/<name>.md.
+PROVENANCE.md format: `Field: value` lines (one per line, no table):
+  Source: logical path, e.g. ~/.claude/skills/plan-pack/SKILL.md (no home-directory path)
+  Source-sha256: 64 lowercase hex
+  State: verbatim | adapted | re-authored
+plus a `## Deltas` section with at least one `- ` bullet (verbatim: `- none`).
 """
 
 import json
@@ -44,8 +55,12 @@ ROOT_DIRS = {
     "rules",
     "assets",
     "tools",
+    "plugins",
+    "opencode",
     ".claude-plugin",
 }
+HOME_MARK = "/" + "home" + "/"  # built at runtime so the privacy scan stays clean
+STATES = {"verbatim", "adapted", "re-authored"}
 
 
 def fail(message):
@@ -159,7 +174,7 @@ def manifests():
         "author",
     }:
         fail("plugin schema fields mismatch")
-    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.3.1-preview":
+    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.3.2-preview":
         fail("plugin name/version mismatch")
     if (
         not isinstance(plugin["description"], str)
@@ -234,6 +249,38 @@ def dependencies(path):
             reference(base, token)
 
 
+def provenance(path):
+    text = safe(path).read_text(encoding="utf-8")
+    fields = {}
+    for key, value in re.findall(r"^(Source|Source-sha256|State): *(.*?) *$", text, re.M):
+        fields.setdefault(key, value)
+    source = fields.get("Source", "")
+    if not source or HOME_MARK in text:
+        fail(f"provenance missing Source or containing a home-directory path: {path}")
+    if not re.fullmatch(r"[0-9a-f]{64}", fields.get("Source-sha256", "")):
+        fail(f"provenance missing/invalid Source-sha256: {path}")
+    if fields.get("State") not in STATES:
+        fail(f"provenance missing/invalid State: {path}")
+    match = re.search(r"^## Deltas[ \t]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    if not match or not re.search(r"^\s*[-*] +\S", match.group(1), re.M):
+        fail(f"provenance needs ## Deltas with at least one bullet: {path}")
+
+
+def ported(directory):
+    """Names of ported entries under ROOT/directory; validates each PROVENANCE.md."""
+    base = ROOT / directory
+    names = set()
+    for entry in base.iterdir():
+        if entry.is_dir() and (entry / "PROVENANCE.md").exists():
+            provenance(entry / "PROVENANCE.md")
+            names.add(entry.name)
+        elif entry.name.endswith(".PROVENANCE.md") and directory == "templates":
+            provenance(entry)
+            names.add(entry.name[: -len(".PROVENANCE.md")] + ".md")
+            names.add(entry.name)
+    return names
+
+
 def main():
     safe(ROOT, directory=True)
     for path in ROOT.rglob("*"):
@@ -245,11 +292,12 @@ def main():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     if "assets/banner-light.svg" not in "\n".join(readme.splitlines()[:15]):
         fail("README banner missing from first 15 lines")
-    if re.search(r"sanitized|T[0-9] release|candidate|NOT PUBLISHED|staged|/home/", readme, re.I):
+    if re.search(r"sanitized|T[0-9] release|candidate|NOT PUBLISHED|staged|" + HOME_MARK, readme, re.I):
         fail("README contains internal status wording")
     if not (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License\n"):
         fail("LICENSE must start with 'MIT License'")
-    if {p.name for p in (ROOT / "skills").iterdir()} != SKILLS:
+    port = {d: ported(d) for d in ("skills", "agents", "templates", "tools")}
+    if {p.name for p in (ROOT / "skills").iterdir()} - port["skills"] != SKILLS:
         fail("skill inventory mismatch")
     for name in SKILLS:
         body = frontmatter(ROOT / "skills" / name / "SKILL.md")
@@ -262,10 +310,10 @@ def main():
         ):
             if f"## {heading}\n" not in body:
                 fail(f"incomplete skill: {name}")
-    if {p.name for p in (ROOT / "templates").iterdir()} != TEMPLATES:
+    if {p.name for p in (ROOT / "templates").iterdir()} - port["templates"] != TEMPLATES:
         fail("template inventory mismatch")
     for directory, expected in (("agents", ROLES), ("commands", COMMANDS)):
-        if {p.name for p in (ROOT / directory).iterdir()} != {
+        if {p.name for p in (ROOT / directory).iterdir()} - port.get(directory, set()) != {
             f"{n}.md" for n in expected
         }:
             fail(f"{directory} inventory mismatch")
@@ -284,10 +332,12 @@ def main():
         | {f"agents/{n}.md" for n in ROLES}
         | {f"commands/{n}.md" for n in COMMANDS}
     )
+    skip = tuple(f"{d}/{n}/" for d in ("skills", "agents") for n in port[d])
     actual = [
         e
         for e in entries
-        if e.endswith("/SKILL.md") or e.startswith(("agents/", "commands/"))
+        if (e.endswith("/SKILL.md") or e.startswith(("agents/", "commands/")))
+        and not e.startswith(skip)
     ]
     if set(actual) != expected or len(actual) != len(expected):
         fail("catalog inventory mismatch")

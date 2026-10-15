@@ -1,6 +1,6 @@
 {
   "name": "ai-architecture",
-  "version": "0.3.1-preview",
-  "description": "Whole-system agent workflows: routing, review, continuity, memory, loops, evaluation and specialist skills, with offline checks.",
+  "version": "0.3.2-preview",
+  "description": "A partial, generic extract of an agent workflow setup: described skills and roles for routing, review and continuity, plus a few runnable offline checks.",
   "author": {"name": "Nik", "url": "https://github.com/nik110403"}
 }

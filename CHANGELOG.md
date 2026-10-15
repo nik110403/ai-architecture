@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2-preview — honesty patch
+
+- README and manifest descriptions no longer claim a whole-system translation; they describe a partial, generic extract.
+- Added a "What runs vs what is described" table to the README.
+- `scripts/check_collection.py` gained a ported-unit class: ported units must carry a provenance record.
+- Added `scripts/privacy_scan.py`, an offline scan for personal identifiers.
+
 ## 0.3.1-preview — 2026-10-15
 
 - Renamed the route and status label for known entrypoints without a tool port to `no-port` (it also covers entrypoints with a manual playbook); `scripts/route.py` constant is now `NO_PORT`. Where text meant "not inspected" it says `unread`.

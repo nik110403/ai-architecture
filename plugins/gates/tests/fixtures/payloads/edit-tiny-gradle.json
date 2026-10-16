@@ -1,0 +1,11 @@
+{
+ "session_id": "@SID@",
+ "transcript_path": "@TRANSCRIPT@",
+ "cwd": "@CWD@",
+ "tool_name": "Edit",
+ "tool_input": {
+  "file_path": "@CWD@/build.gradle",
+  "old_string": "a",
+  "new_string": "b"
+ }
+}

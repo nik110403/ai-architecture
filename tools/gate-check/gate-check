@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""gate-check — run the CHECK commands in a plan-pack's GATES.md, report pass/fail per gate.
+
+Stdlib only, no dependencies. Format lifted from Leonxlnx/unlazy (references/gates.md,
+gate-check.mjs, MIT, SHA ed9e8d2b5919698cf2c54bda270d507e10b69617), adapted: gates carry an
+optional `SPEC:` cross-ref to a SPEC.md item ID, and this tool is a stateless reporter — it
+never edits GATES.md. The verifier agent re-runs it fresh each time and cites the output, so
+there is no on-disk state to drift out of sync.
+
+Usage:
+  gate-check [pack-dir-or-file]            run every gate's CHECK, report ✅/⛔, exit accordingly
+  gate-check [pack-dir-or-file] --dry-run  list gates only, run nothing
+  gate-check [pack-dir-or-file] --timeout 60
+
+SECURITY: every CHECK line is run with shell=True (a full shell command, invisible to any Bash
+guard). Run gate-check only on packs you trust; use --dry-run first on anything else.
+
+pack-dir-or-file defaults to GATES.md in the current directory. A directory argument is
+resolved to <dir>/GATES.md.
+
+Exit codes: 0 = all gates met (or honestly abandoned), 1 = unmet gates remain,
+            2 = usage or parse error (file missing, or no gates found).
+"""
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+GATE_RE = re.compile(r"^- \[( |x|X)\] (\S+?):\s*(.*)$")
+ATTR_RE = re.compile(r"^\s+(SPEC|CHECK|EXPECT|EVIDENCE):\s?(.*)$")
+ABANDON_RE = re.compile(r"^ABANDON:\s*(\S+?):?(?:\s+(.*))?$")
+
+
+def resolve_file(arg):
+    p = Path(arg) if arg else Path("GATES.md")
+    if p.is_dir():
+        p = p / "GATES.md"
+    return p
+
+
+def parse(lines):
+    gates = []
+    abandoned = {}
+    cur = None
+    for line in lines:
+        m = GATE_RE.match(line)
+        if m:
+            cur = {
+                "checked": m.group(1).lower() == "x",
+                "id": m.group(2),
+                "title": m.group(3).strip(),
+                "spec": None, "check": None, "expect": None, "evidence": None,
+            }
+            gates.append(cur)
+            continue
+        a = ATTR_RE.match(line) if cur else None
+        if a:
+            cur[a.group(1).lower()] = a.group(2).strip()
+            continue
+        ab = ABANDON_RE.match(line)
+        if ab:
+            abandoned[ab.group(1)] = ab.group(2) or "(no reason)"
+            continue
+        if line.startswith("#") or line.startswith("- "):
+            cur = None  # left the current gate's indented block
+    return gates, abandoned
+
+
+def expect_matches(expect, output):
+    rx = re.match(r"^/(.+)/([a-z]*)$", expect)
+    if rx:
+        # MULTILINE: output is stdout+"\n"+stderr, so `$` must match at each line end
+        flags = re.MULTILINE | (re.IGNORECASE if "i" in rx.group(2) else 0)
+        try:
+            return re.search(rx.group(1), output, flags) is not None
+        except re.error:
+            return False
+    return expect in output
+
+
+def tail(output, max_len=200):
+    lines = [s.strip() for s in output.splitlines() if s.strip()]
+    last = " | ".join(lines[-2:])
+    return (last or "(no output)")[:max_len]
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("path", nargs="?", help="GATES.md file, or a dir containing one (default: ./GATES.md)")
+    ap.add_argument("--dry-run", action="store_true", help="list gates without running any checks")
+    ap.add_argument("--timeout", type=int, default=120, help="per-check timeout in seconds (default 120)")
+    args = ap.parse_args()
+
+    gates_file = resolve_file(args.path)
+    if not gates_file.is_file():
+        print(f"gate-check: no gates file found at {gates_file}", file=sys.stderr)
+        return 2
+
+    lines = gates_file.read_text(encoding="utf-8").splitlines()
+    gates, abandoned = parse(lines)
+    if not gates:
+        print(f"gate-check: {gates_file}: no gates found", file=sys.stderr)
+        return 2
+
+    if args.dry_run:
+        for g in gates:
+            spec = f" (SPEC: {g['spec']})" if g["spec"] else ""
+            print(f"{g['id']}{spec}: {g['title']}")
+        print(f"{gates_file}: {len(gates)} gates (dry-run, nothing executed)")
+        return 0
+
+    met = unmet = 0
+    for g in gates:
+        spec = f" [{g['spec']}]" if g["spec"] else ""
+        if g["id"] in abandoned:
+            print(f"⚐ {g['id']}{spec}: {g['title']} — ABANDONED: {abandoned[g['id']]}")
+            continue
+
+        if g["check"]:
+            try:
+                res = subprocess.run(
+                    g["check"], shell=True, capture_output=True, text=True, timeout=args.timeout,
+                )
+                output = f"{res.stdout or ''}\n{res.stderr or ''}"
+                ok = expect_matches(g["expect"], output) if g["expect"] else res.returncode == 0
+            except subprocess.TimeoutExpired:
+                ok = False
+                output = f"(timed out after {args.timeout}s)"
+            if ok:
+                met += 1
+                print(f"✅ {g['id']}{spec}: {g['title']} — {tail(output)}")
+            else:
+                unmet += 1
+                print(f"⛔ {g['id']}{spec}: {g['title']} — {tail(output)}")
+        else:
+            has_evidence = g["evidence"] and not re.match(r"^pending$", g["evidence"], re.IGNORECASE)
+            if g["checked"] and has_evidence:
+                met += 1
+                print(f"✅ {g['id']}{spec}: {g['title']} — {g['evidence']}")
+            else:
+                unmet += 1
+                why = "unchecked" if not g["checked"] else "checked but EVIDENCE pending"
+                print(f"⛔ {g['id']}{spec}: {g['title']} — manual gate, {why}")
+
+    n_abandoned = len(abandoned)
+    if unmet == 0:
+        suffix = f", {n_abandoned} abandoned" if n_abandoned else ""
+        print(f"ALL MET ({met} met{suffix})")
+        return 0
+    suffix = f", abandoned: {n_abandoned}" if n_abandoned else ""
+    print(f"UNMET: {unmet} (met: {met}{suffix})")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

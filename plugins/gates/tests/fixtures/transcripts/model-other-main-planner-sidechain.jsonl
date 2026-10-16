@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"model":"plain-model","content":[{"type":"text","text":"ok"}]}}
+{"type":"assistant","message":{"model":"planner-model-1","content":[{"type":"text","text":"ok"}]},"isSidechain":true}

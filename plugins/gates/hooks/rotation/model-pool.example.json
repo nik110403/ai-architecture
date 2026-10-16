@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "mode": "on",
+  "independent_roles": ["reviewer"],
+  "roles": {
+    "builder": [
+      {"model": "provider/model-a", "weight": 3},
+      {"model": "provider/model-b", "weight": 1},
+      {"model": "provider/model-c", "weight": 1, "enabled": false}
+    ],
+    "reviewer": [
+      {"model": "provider/model-a", "weight": 1},
+      {"model": "provider/model-b", "weight": 1}
+    ]
+  }
+}

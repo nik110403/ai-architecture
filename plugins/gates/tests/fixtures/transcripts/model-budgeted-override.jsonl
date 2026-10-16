@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"model":"budgeted-model-1","content":[{"type":"text","text":"ok"}]}}
+{"type":"user","message":{"role":"user","content":"override: inline"}}

@@ -1,0 +1,18 @@
+{
+  "_comment": "Baseline for ai-architecture-gates. Do not put personal settings here: create ~/.config/ai-architecture/gates.json (or point AIARCH_CONFIG at a file). Project-scope config files are never read.",
+  "protected_roots": ["~/.claude", "~/.config", "~/.codex"],
+  "protected_containers": ["~/.claude"],
+  "protected_names": [],
+  "deny_patterns": [],
+  "ask_patterns": [],
+  "edit_budget_models": {},
+  "no_code_models": [],
+  "override_phrase": "override: inline",
+  "delegate_role": "builder",
+  "ui_delegate_role": "",
+  "builder_roles": ["builder", "implementer", "design-builder"],
+  "ui_builder_roles": ["design-builder"],
+  "design_review_role": "design-critic",
+  "security_review_role": "security-reviewer",
+  "trusted_plugin_prefixes": ["ai-architecture"]
+}

@@ -1,0 +1,12 @@
+# Provenance
+
+Source: ~/.claude/agents/implementer.md
+Source-sha256: c95441f2c21bb907600ea03c0c7124912acb03081fae90e3ea3c5425db79bcec
+State: adapted
+
+## Deltas
+
+- Removed model and effort pins, the staged-patch comment, private skill and shared-file references, and the machine-parsed ledger conventions; the lean-code ladder is kept inline.
+- UI files: the brief now says to stop if a UI-specialist agent exists in your setup (none is shipped here).
+- Tool list is Read, Write, Edit, Bash, Grep, Glob (notebook editing dropped).
+- Episode-budget section kept as plain self-discipline text, not an enforced limit.

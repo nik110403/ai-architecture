@@ -20,12 +20,17 @@
 | [discovery](skills/discovery/SKILL.md) | instructions, memory, and project inventory | [report-only memory check](skills/discovery/scripts/memory_check.py) |
 | [operations](skills/operations/SKILL.md) | drift, loops, scout, retro, promotion | local process only |
 | [specialist-journeys](skills/specialist-journeys/SKILL.md) | dependency-explicit specialist work | [playbooks.md](skills/specialist-journeys/playbooks.md) |
+| [plan-pack](skills/plan-pack/SKILL.md) | writing a strategy, spec and tracker for bigger work | [templates](templates/), `tools/plancheck/` |
+| [exec-pack](skills/exec-pack/SKILL.md) | running a spec's items as parallel waves of workers | `tools/gate-check/` |
+| [tribunal](skills/tribunal/SKILL.md) | sealed multi-judge review of a high-stakes change | `tools/tribunal-scribe/` |
 
 ## Roles
 
 - [builder](agents/builder.md)
-- [verifier](agents/verifier.md)
-- [refuter](agents/refuter.md)
+- [implementer](agents/implementer/implementer.md)
+- [verifier](agents/verifier/verifier.md)
+- [tribune](agents/tribune/tribune.md)
+- [refuter](agents/refuter/refuter.md)
 - [researcher](agents/researcher.md)
 - [security-reviewer](agents/security-reviewer.md)
 - [design-critic](agents/design-critic.md)
@@ -43,4 +48,4 @@ The optional journal is a local companion utility, not required for the continui
 
 For the broader operating-model map, statuses, and unported dependencies, see
 [CAPABILITIES.md](CAPABILITIES.md) and [WORKFLOWS.md](WORKFLOWS.md). This catalog has
-18 skills, 6 roles, and 6 commands. Router reports do not create native enforcement.
+21 skills, 8 roles, and 6 commands. Router reports do not create native enforcement.

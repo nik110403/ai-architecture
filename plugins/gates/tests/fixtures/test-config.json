@@ -1,0 +1,9 @@
+{
+  "protected_roots": ["~/vault", "~/workspace", "~/Notes Vault", "~/.local/share/archive-store"],
+  "protected_containers": ["~/vault", "~/vault/Research", "~/.local/share/archive-store", "~/workspace"],
+  "protected_names": ["vault", "workspace", "Notes Vault", "archive-store"],
+  "edit_budget_models": {"budgeted": 2},
+  "no_code_models": ["planner-model"],
+  "builder_roles": ["builder"],
+  "ui_builder_roles": ["ui-builder"]
+}

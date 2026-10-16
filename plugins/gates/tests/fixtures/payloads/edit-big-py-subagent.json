@@ -1,0 +1,11 @@
+{
+ "session_id": "@SID@",
+ "transcript_path": "@TRANSCRIPT@",
+ "cwd": "@CWD@",
+ "agent_type": "ai-architecture:builder",
+ "tool_name": "Write",
+ "tool_input": {
+  "file_path": "@CWD@/mod.py",
+  "content": "@BIG@"
+ }
+}

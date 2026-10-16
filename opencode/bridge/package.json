@@ -1,0 +1,10 @@
+{
+  "name": "ai-architecture-opencode-bridge",
+  "private": true,
+  "type": "module",
+  "description": "OpenCode plugin that runs the ai-architecture gates hooks. Only the bash structural check needs the two packages below.",
+  "dependencies": {
+    "web-tree-sitter": "0.25.10",
+    "tree-sitter-bash": "0.25.0"
+  }
+}

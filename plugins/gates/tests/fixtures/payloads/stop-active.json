@@ -1,0 +1,7 @@
+{
+ "session_id": "@SID@",
+ "transcript_path": "@TRANSCRIPT@",
+ "cwd": "@CWD@",
+ "hook_event_name": "Stop",
+ "stop_hook_active": true
+}

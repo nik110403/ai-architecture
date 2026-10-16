@@ -1,0 +1,6 @@
+{
+  "name": "ai-architecture-gates",
+  "version": "0.4.0-preview",
+  "description": "Optional opt-in hook gates: a destructive-command and secret-read guard for Bash, per-model code-edit budgets, review-before-stop, and resumable-state nudges. Install only by explicit choice; the main ai-architecture plugin does not depend on it.",
+  "author": {"name": "Nik", "url": "https://github.com/nik110403"}
+}

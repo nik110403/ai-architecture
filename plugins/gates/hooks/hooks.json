@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/bash-destructive-guard.sh\"", "timeout": 10}
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" pretool no-code-guard.py", "timeout": 10},
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" pretool edit-budget-gate.py", "timeout": 10}
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" stop review-stop-gate.py", "timeout": 10},
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" stop clean-state-check.py", "timeout": 10}
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" session resume-inject.py", "timeout": 10}
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+- [Alpha](alpha.md) — Linked partner of beta, indexed.
+- [Beta](beta.md) — Linked from alpha, indexed.
+- [Loner](loner.md) — No links either way, indexed.

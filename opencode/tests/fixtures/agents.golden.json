@@ -1,0 +1,38 @@
+{
+  "agent": {
+    "fixer": {
+      "description": "Makes one bounded change.",
+      "mode": "subagent",
+      "model": "provider/model-name",
+      "prompt": "# Fixer\nMake the change and run the check.\n",
+      "tools": {
+        "glob": false,
+        "grep": false,
+        "webfetch": false
+      }
+    },
+    "scout": {
+      "description": "Reads and reports; never edits.",
+      "mode": "subagent",
+      "model": "provider/model-name",
+      "prompt": "# Scout\nRead the named files and report what they say.\n",
+      "tools": {
+        "bash": false,
+        "edit": false,
+        "webfetch": false
+      }
+    },
+    "writer": {
+      "description": "Writes files, nothing else.",
+      "mode": "subagent",
+      "model": "provider/model-name",
+      "prompt": "Write what you are asked to write.\n",
+      "tools": {
+        "bash": false,
+        "glob": false,
+        "grep": false,
+        "webfetch": false
+      }
+    }
+  }
+}

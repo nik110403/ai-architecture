@@ -6,14 +6,20 @@ No network, harness activation, or arbitrary Markdown/code interpretation.
 
 Ported class (exempt from the 5-heading rule and the exact skill/role/template
 inventories): a directory with a PROVENANCE.md inside it --
-  skills/<x>/PROVENANCE.md, agents/<name>/PROVENANCE.md (role file at
-  agents/<name>/<name>.md), tools/<name>/PROVENANCE.md --
+  skills/<x>/PROVENANCE.md, agents/<name>/PROVENANCE.txt (role file at
+  agents/<name>/<name>.md; .txt because any .md under agents/ is loaded as an
+  agent, so agents/<x>/PROVENANCE.md is rejected), tools/<name>/PROVENANCE.md --
 or templates/<name>.PROVENANCE.md beside templates/<name>.md.
 PROVENANCE.md format: `Field: value` lines (one per line, no table):
   Source: logical path, e.g. ~/.claude/skills/plan-pack/SKILL.md (no home-directory path)
   Source-sha256: 64 lowercase hex
   State: verbatim | adapted | re-authored
 plus a `## Deltas` section with at least one `- ` bullet (verbatim: `- none`).
+
+Multi-unit records: every PROVENANCE.md under plugins/ and opencode/ may instead hold
+one `## <unit>` section per ported file, each with the same three fields and a
+`Deltas:` line followed by at least one `- ` bullet. Sections titled Deltas, Not ported
+or Notes are free text. A file with no `Source:` line, or any malformed unit, fails.
 """
 
 import json
@@ -28,8 +34,14 @@ SKILLS = set(
     "planning execution delegation context continuity review evaluation workspace design research safety maintenance routing convergence lifecycle discovery operations specialist-journeys".split()
 )
 ROLES = set(
-    "builder verifier refuter researcher security-reviewer design-critic".split()
+    "builder researcher security-reviewer design-critic".split()
 )
+# Ported units (a directory with a PROVENANCE.md) are checked through `ported()`; these are the
+# names expected to be present, so the totals below are real inventories, not a stale number.
+PORTED = {
+    "skills": set("plan-pack exec-pack tribunal".split()),
+    "agents": set("implementer verifier tribune refuter".split()),
+}
 COMMANDS = set("plan execute review checkpoint research health".split())
 ROOT_DOCS = set(
     "README.md INSTALL.md CATALOG.md COVERAGE.md CONTRIBUTING.md CHANGELOG.md AGENTS.md LICENSE LICENSE-docs LICENSES.md CITATION.cff CAPABILITIES.md WORKFLOWS.md .markdownlint.yaml assets/banner-light.svg assets/banner-dark.svg assets/social-preview.png tools/banner/bin/make-banner tools/banner/fonts/OFL.txt".split()
@@ -61,6 +73,7 @@ ROOT_DIRS = {
 }
 HOME_MARK = "/" + "home" + "/"  # built at runtime so the privacy scan stays clean
 STATES = {"verbatim", "adapted", "re-authored"}
+VERSION = "0.4.0-preview"
 
 
 def fail(message):
@@ -174,7 +187,7 @@ def manifests():
         "author",
     }:
         fail("plugin schema fields mismatch")
-    if plugin["name"] != "ai-architecture" or plugin["version"] != "0.3.2-preview":
+    if plugin["name"] != "ai-architecture" or plugin["version"] != VERSION:
         fail("plugin name/version mismatch")
     if (
         not isinstance(plugin["description"], str)
@@ -198,18 +211,23 @@ def manifests():
         or not metadata["description"].strip()
     ):
         fail("marketplace metadata version/description mismatch")
-    if not isinstance(market["plugins"], list) or len(market["plugins"]) != 1:
+    gates = json.loads(
+        safe(ROOT / "plugins/gates/.claude-plugin/plugin.json").read_text(encoding="utf-8"),
+        object_pairs_hook=unique_keys,
+    )
+    if not isinstance(gates, dict) or set(gates) != set(plugin):
+        fail("gates plugin schema fields mismatch")
+    if gates["name"] != "ai-architecture-gates" or gates["version"] != VERSION:
+        fail("gates plugin name/version mismatch")
+    attribution(gates["author"])
+    expected = [
+        {"name": plugin["name"], "version": plugin["version"], "source": "./"},
+        {"name": gates["name"], "version": gates["version"], "source": "./plugins/gates"},
+    ]
+    if market["plugins"] != expected:
         fail("marketplace plugin inventory mismatch")
-    entry = market["plugins"][0]
-    if not isinstance(entry, dict) or set(entry) != {"name", "version", "source"}:
-        fail("marketplace entry fields mismatch")
-    if (
-        entry["name"] != plugin["name"]
-        or entry["version"] != plugin["version"]
-        or entry["source"] != "./"
-    ):
-        fail("marketplace source/name/version mismatch")
-    reference(ROOT, entry["source"], directory=True)
+    for entry in expected:
+        reference(ROOT, entry["source"], directory=True)
 
 
 def dependencies(path):
@@ -251,6 +269,20 @@ def dependencies(path):
 
 def provenance(path):
     text = safe(path).read_text(encoding="utf-8")
+    if HOME_MARK in text:
+        fail(f"provenance containing a home-directory path: {path}")
+    sections = [p for p in re.split(r"^(?=## )", text, flags=re.M) if p.startswith("## ")]
+    sections = [p for p in sections if not re.match(r"## (Deltas|Not ported|Notes)[ \t]*\n", p)]
+    if any(re.search(r"^Source: *\S", p, re.M) for p in sections):
+        if re.search(r"^(#|###+) ", text[text.index("## "):], re.M):
+            fail(f"multi-unit provenance may only use '## ' unit headings: {path}")
+        for unit in sections:  # multi-unit: every section is a unit
+            provenance_unit(unit, path)
+    else:
+        provenance_unit(text, path)  # single unit: whole file
+
+
+def provenance_unit(text, path):
     fields = {}
     for key, value in re.findall(r"^(Source|Source-sha256|State): *(.*?) *$", text, re.M):
         fields.setdefault(key, value)
@@ -261,24 +293,68 @@ def provenance(path):
         fail(f"provenance missing/invalid Source-sha256: {path}")
     if fields.get("State") not in STATES:
         fail(f"provenance missing/invalid State: {path}")
-    match = re.search(r"^## Deltas[ \t]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    match = re.search(r"^(?:## )?Deltas:?[ \t]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
     if not match or not re.search(r"^\s*[-*] +\S", match.group(1), re.M):
         fail(f"provenance needs ## Deltas with at least one bullet: {path}")
+    if fields["State"] != "verbatim" and not any(
+        b.strip().lower().rstrip(".") != "none"
+        for b in re.findall(r"^\s*[-*] +(\S.*)$", match.group(1), re.M)
+    ):
+        fail(f"provenance State {fields['State']} needs at least one non-'none' delta: {path}")
 
 
 def ported(directory):
     """Names of ported entries under ROOT/directory; validates each PROVENANCE.md."""
     base = ROOT / directory
     names = set()
+    record = "PROVENANCE.txt" if directory == "agents" else "PROVENANCE.md"
     for entry in base.iterdir():
-        if entry.is_dir() and (entry / "PROVENANCE.md").exists():
-            provenance(entry / "PROVENANCE.md")
+        if directory == "agents" and (entry / "PROVENANCE.md").exists():
+            fail(f"agents/{entry.name}/PROVENANCE.md would load as an agent; name it PROVENANCE.txt")
+        if entry.is_dir() and (entry / record).exists():
+            provenance(entry / record)
             names.add(entry.name)
         elif entry.name.endswith(".PROVENANCE.md") and directory == "templates":
             provenance(entry)
             names.add(entry.name[: -len(".PROVENANCE.md")] + ".md")
             names.add(entry.name)
     return names
+
+
+# Provenance record -> files it must account for (each file name has to appear in the record).
+RECORDS = {
+    "plugins/gates/hooks/PROVENANCE.md": ("plugins/gates/hooks", "*.py", "*.sh"),
+    "plugins/gates/hooks/rotation/PROVENANCE.md": ("plugins/gates/hooks/rotation", "*.py"),
+    "opencode/bridge/PROVENANCE.md": ("opencode/bridge", "*.ts"),
+    "opencode/rotation/PROVENANCE.md": ("opencode/rotation", "*.ts"),
+    "opencode/agents/PROVENANCE.md": ("opencode/agents", "opencode-agents-sync"),
+}
+
+
+def records():
+    """plugins/ and opencode/ ported units: every record must exist, be well formed and name its files."""
+    for record, (directory, *patterns) in RECORDS.items():
+        path = ROOT / record
+        if not path.exists():
+            fail(f"missing provenance record: {record}")
+        provenance(path)
+        text = path.read_text(encoding="utf-8")
+        units = set()  # names a "## ..." heading stands for: whole tokens, their basename and stem
+        for heading in re.findall(r"^## (.+?)[ \t]*$", text, re.M):
+            for token in re.split(r"[\s,+]+", heading):
+                units |= {token, Path(token).name, Path(token).stem}
+        multi = bool(re.search(r"^## .*\n(?:.*\n)*?Source: *\S", text, re.M)) and bool(units)
+        for pattern in patterns:
+            for item in (ROOT / directory).glob(pattern):
+                if not item.is_file():
+                    continue
+                if multi and item.name not in units and item.stem not in units:
+                    fail(f"provenance record does not account for {item.relative_to(ROOT)} (no '## {item.name}' unit heading): {record}")
+                if item.name not in text:
+                    fail(f"provenance record does not account for {item.relative_to(ROOT)}: {record}")
+    for path in (*(ROOT / "plugins").rglob("PROVENANCE.md"), *(ROOT / "opencode").rglob("PROVENANCE.md")):
+        if str(path.relative_to(ROOT)) not in RECORDS:
+            provenance(path)
 
 
 def main():
@@ -297,6 +373,8 @@ def main():
     if not (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License\n"):
         fail("LICENSE must start with 'MIT License'")
     port = {d: ported(d) for d in ("skills", "agents", "templates", "tools")}
+    if not PORTED["skills"] <= port["skills"] or not PORTED["agents"] <= port["agents"]:
+        fail("ported skill/role inventory mismatch")
     if {p.name for p in (ROOT / "skills").iterdir()} - port["skills"] != SKILLS:
         fail("skill inventory mismatch")
     for name in SKILLS:
@@ -328,16 +406,15 @@ def main():
     catalog = safe(ROOT / "CATALOG.md").read_text(encoding="utf-8")
     entries = LINK.findall(catalog)
     expected = (
-        {f"skills/{n}/SKILL.md" for n in SKILLS}
+        {f"skills/{n}/SKILL.md" for n in SKILLS | PORTED["skills"]}
         | {f"agents/{n}.md" for n in ROLES}
+        | {f"agents/{n}/{n}.md" for n in PORTED["agents"]}
         | {f"commands/{n}.md" for n in COMMANDS}
     )
-    skip = tuple(f"{d}/{n}/" for d in ("skills", "agents") for n in port[d])
     actual = [
         e
         for e in entries
-        if (e.endswith("/SKILL.md") or e.startswith(("agents/", "commands/")))
-        and not e.startswith(skip)
+        if e.endswith("/SKILL.md") or e.startswith(("agents/", "commands/"))
     ]
     if set(actual) != expected or len(actual) != len(expected):
         fail("catalog inventory mismatch")
@@ -353,8 +430,11 @@ def main():
     for path in ROOT.rglob("*.md"):
         dependencies(path)
     manifests()
+    records()
     print(
-        "PASS: 18 skills, 6 roles, 6 commands; catalog, scalar metadata, local dependencies, manifests and static path checks"
+        f"PASS: {len(SKILLS | PORTED['skills'])} skills, {len(ROLES | PORTED['agents'])} roles, "
+        f"{len(COMMANDS)} commands; catalog, scalar metadata, local dependencies, manifests, "
+        "provenance records and static path checks"
     )
 
 

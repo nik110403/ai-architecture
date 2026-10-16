@@ -1,0 +1,10 @@
+# Provenance
+
+Source: ~/.claude/agents/tribune.md
+Source-sha256: 4a958397aff64cd33766df753dec641d02ee5965bce900c86fa4b124f1ca5e6d
+State: adapted
+
+## Deltas
+
+- Tools reduced from Read, Grep, Glob, Bash to Read, Grep, Glob: with no guard hook shipped, a judge with a shell could write files, so Bash was removed. Claims that need a command run are listed as UNVERIFIED for the orchestrator or a refuter.
+- Removed model/effort pins, pin headers, staged-patch notes, private citations and the machine-parsed ledger line. Verdict vocabulary, severity, evidence-strength labels, discussion-turn format and the 'untrusted verdict text' rule are unchanged.

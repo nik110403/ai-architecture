@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"plan it"}}
+{"type":"assistant","message":{"model":"planner-model-1","content":[{"type":"text","text":"ok"}]}}

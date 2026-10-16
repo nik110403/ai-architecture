@@ -39,6 +39,28 @@ class CollectionTests(unittest.TestCase):
         result = self.run_check(ROOT)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_record_rejects_single_hash_heading_in_unit(self):
+        self.corrupt("opencode/bridge/PROVENANCE.md", "## plugin.ts\n", "# plugin.ts\n", "unit headings")
+
+    def test_record_rejects_triple_hash_heading_in_unit(self):
+        self.corrupt("opencode/bridge/PROVENANCE.md", "## plugin.ts\n", "### plugin.ts\n", "unit headings")
+
+    def test_record_requires_unit_heading_not_substring(self):
+        self.corrupt(
+            "opencode/bridge/PROVENANCE.md",
+            "## bash-structural-hook.ts\n",
+            "## the hook (bash-structural-hook.ts)\n",
+            "unit heading",
+        )
+
+    def test_record_non_verbatim_needs_real_delta(self):
+        self.corrupt(
+            "opencode/bridge/PROVENANCE.md",
+            "- wires only the gates bridge and the structural bash check; continuity, model rotation, rate-limit fallback and the other personal modules are not included",
+            "- none",
+            "non-'none' delta",
+        )
+
     def test_missing_template(self):
         root = self.copied()
         (root / "templates/plan.md").unlink()
@@ -126,8 +148,8 @@ class CollectionTests(unittest.TestCase):
     def test_escaping_reference(self):
         self.corrupt(
             "README.md",
-            "## Why it exists",
-            "[escape](../outside.md)\n## Why it exists",
+            "## How the system works",
+            "[escape](../outside.md)\n## How the system works",
             "escaping/redirected",
         )
 
@@ -166,12 +188,12 @@ class CollectionTests(unittest.TestCase):
             ".claude-plugin/marketplace.json",
             '"source": "./"',
             '"source": "../"',
-            "source/name/version",
+            "marketplace plugin inventory",
         )
 
     def test_manifest_bad_version(self):
         self.corrupt(
-            ".claude-plugin/plugin.json", "0.3.2-preview", "nonsense", "name/version"
+            ".claude-plugin/plugin.json", "0.4.0-preview", "nonsense", "name/version"
         )
 
     def test_manifest_duplicate_key(self):
@@ -238,6 +260,23 @@ class CollectionTests(unittest.TestCase):
         result = self.ported(self.GOOD)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def ported_agent(self, record):
+        root = self.copied()
+        directory = root / "agents/ported-x"
+        directory.mkdir(parents=True)
+        (directory / "ported-x.md").write_text("not a normal agent\n", encoding="utf-8")
+        (directory / record).write_text(self.GOOD, encoding="utf-8")
+        return self.run_check(root)
+
+    def test_ported_agent_txt_accepted(self):
+        result = self.ported_agent("PROVENANCE.txt")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ported_agent_md_rejected(self):
+        result = self.ported_agent("PROVENANCE.md")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PROVENANCE.txt", result.stderr)
+
     def test_ported_tool_accepted(self):
         result = self.ported(self.GOOD, "tools/ported-x")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -262,6 +301,55 @@ class CollectionTests(unittest.TestCase):
         result = self.ported(self.GOOD.replace("~/.claude/skills/plan-pack", home))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("home-directory", result.stderr)
+
+
+    GATES = "plugins/gates/hooks/PROVENANCE.md"
+    UNIT = "State: adapted\n"
+
+    def test_gates_provenance_missing_rejected(self):
+        root = self.copied()
+        (root / self.GATES).unlink()
+        result = self.run_check(root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PROVENANCE.md", result.stderr)
+
+    def test_gates_provenance_missing_state_rejected(self):
+        self.corrupt(self.GATES, self.UNIT, "", "State")
+
+    def test_gates_provenance_bad_sha_rejected(self):
+        root = self.copied()
+        path = root / self.GATES
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("Source-sha256: ", "Source-sha256: zz", 1), encoding="utf-8")
+        self.assertIn("Source-sha256", self.run_check(root).stderr)
+
+    def test_gates_provenance_without_deltas_rejected(self):
+        root = self.copied()
+        path = root / "plugins/gates/hooks/rotation/PROVENANCE.md"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("Deltas:", "Changes:"), encoding="utf-8")
+        self.assertIn("Deltas", self.run_check(root).stderr)
+
+    def test_gates_provenance_unlisted_hook_rejected(self):
+        root = self.copied()
+        (root / "plugins/gates/hooks/extra-hook.py").write_text("pass\n", encoding="utf-8")
+        self.assertIn("does not account for", self.run_check(root).stderr)
+
+    def test_opencode_provenance_malformed_rejected(self):
+        self.corrupt("opencode/bridge/PROVENANCE.md", self.UNIT, "", "State")
+
+    def test_opencode_provenance_missing_rejected(self):
+        root = self.copied()
+        (root / "opencode/rotation/PROVENANCE.md").unlink()
+        self.assertIn("missing provenance record", self.run_check(root).stderr)
+
+    def test_marketplace_must_list_gates(self):
+        self.corrupt(
+            ".claude-plugin/marketplace.json",
+            '"source": "./plugins/gates"',
+            '"source": "./plugins/other"',
+            "marketplace plugin inventory",
+        )
 
 
 if __name__ == "__main__":

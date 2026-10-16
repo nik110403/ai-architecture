@@ -1,0 +1,459 @@
+#!/usr/bin/env python3
+"""tribunal-scribe — physical sealing + verbatim record for a tribunal workspace (judges must
+not write or commit the record; every turn is framed and hash-checked).
+
+Replaces judge/orchestrator-written seat-*.md/turns/*.md/transcript.md with a single script
+that is the ONLY writer of the record. Subcommands:
+
+  open <ws>                        create <ws>/.tribunal-active (head=<git HEAD sha>,
+                                    opened=<ISO time>) + <ws>/turns/. Refuses (exit 1) prior-run
+                                    leftovers (turns/, seat-*.md, transcript.md already present).
+  append <ws> <round> <seat> <lens> <payload-file>
+                                    copy payload bytes verbatim into <ws>/turns/r<round>-s<seat>.md
+                                    (round 0 also into <ws>/seat-<seat>-<lens>.md), append a framed
+                                    turn to <ws>/transcript.md under its `## Round <k>` heading, and
+                                    record the new transcript sha in <ws>/TRANSCRIPT.SHA256. Seats
+                                    are labelled by lens only, never a model name.
+  close <ws> <reason> <round>      append `## Closed — <reason>, round <k>`, update
+                                    TRANSCRIPT.SHA256, remove the marker. reason must be one of
+                                    saturation|cap|refuter-handoff.
+  verify <ws>                      recompute every turns/ file's sha against its transcript
+                                    heading, the transcript sha against TRANSCRIPT.SHA256's last
+                                    line, and every fenced payload in transcript.md against its
+                                    turns/ file, byte for byte. Exit 0 clean, 3 with a list.
+
+Integrity check (append/close), both required:
+  1. If <ws>/TRANSCRIPT.SHA256 exists, its last line's sha must equal sha256(transcript.md) —
+     else exit 3 "transcript modified outside scribe" (catches hand-editing).
+  2. `git log <marker head>..HEAD -- <ws>/turns <ws>/seat-*.md <ws>/transcript.md` must be
+     empty — else exit 3 naming the offending commits (catches a non-scribe commit; this is
+     the reason an auto-commit tool should skip directories that hold a `.tribunal-active` marker).
+
+Fence framing: each turn is embedded between a pair of backtick fences whose length is
+max(3, longest run of consecutive backticks inside the payload + 1) — guarantees no line
+inside the payload can be mistaken for the closing fence, so a payload that itself contains
+```` ``` ```` or a spoofed `### Seat n` / `## Closed` line stays inert data inside the envelope.
+Because a fence's closing line must sit on its own line, a payload with no trailing newline
+gets exactly one appended before the closing fence when embedded in transcript.md; `verify`
+accounts for that one controlled byte when comparing the fenced region back to the turns/ file
+(see FENCE_TRAILING_NEWLINE_NOTE below) — any other difference still fails verify.
+"""
+import hashlib
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+PROG = "tribunal-scribe"
+REASONS = {"saturation", "cap", "refuter-handoff"}
+
+ROUND_RE = re.compile(b'^## Round (\\d+)(?: \xe2\x80\x94 opening statements)?$')
+SEAT_RE = re.compile(rb'^### Seat (\d+) \((.*)\) sha256:([0-9a-f]{64})$')
+FENCE_OPEN_RE = re.compile(rb'^(`{3,})turn$')
+
+# \Z (not $) deliberately: Python's `$` matches just before a single trailing newline too, which
+# would let a lens like "foo\n" slip past a naive `...foo$` pattern (argv can carry embedded
+# newlines even though a shell command line rarely would). lens is used to build a filename
+# (seat-<seat>-<lens>.md) so this also blocks path traversal (`../x`, `/etc/passsomething`).
+LENS_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,40}\Z')
+
+
+def die(code, msg):
+    print(f"{PROG}: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    return sha256_bytes(path.read_bytes())
+
+
+def marker_path(ws: Path) -> Path:
+    return ws / ".tribunal-active"
+
+
+def read_marker(ws: Path):
+    p = marker_path(ws)
+    if not p.exists():
+        return None
+    fields = {}
+    for line in p.read_text().splitlines():
+        if "=" in line:
+            k, _, v = line.partition("=")
+            fields[k.strip()] = v.strip()
+    return fields
+
+
+def require_marker(ws: Path):
+    m = read_marker(ws)
+    if not m or "head" not in m:
+        die(1, f"no active tribunal marker in {ws} (run 'open' first)")
+    return m
+
+
+def transcript_sha_file(ws: Path) -> Path:
+    return ws / "TRANSCRIPT.SHA256"
+
+
+def last_recorded_sha(ws: Path):
+    p = transcript_sha_file(ws)
+    if not p.exists():
+        return None
+    lines = [l for l in p.read_text().splitlines() if l.strip()]
+    if not lines:
+        return None
+    return lines[-1].split()[0]
+
+
+def integrity_check(ws: Path, marker_head: str):
+    """Shared by append/close. Exits 3 on any failure — see module docstring."""
+    expected = last_recorded_sha(ws)
+    if expected is not None:
+        transcript = ws / "transcript.md"
+        actual = sha256_file(transcript) if transcript.exists() else None
+        if actual != expected:
+            die(3, "transcript modified outside scribe "
+                    f"(TRANSCRIPT.SHA256 last sha {expected}, actual {actual})")
+
+    if not re.fullmatch(r"[0-9a-f]{40}", marker_head or ""):
+        die(3, "marker head is not a 40-hex commit sha")
+    turns_path = str(ws / "turns")
+    seat_glob = str(ws) + "/seat-*.md"
+    transcript_path = str(ws / "transcript.md")
+    r = subprocess.run(
+        ["git", "-C", str(ws), "log", "--format=%H", "--end-of-options", f"{marker_head}..HEAD",
+         "--", turns_path, seat_glob, transcript_path],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        die(3, f"git log failed while checking the record: {r.stderr.strip()}")
+    commits = [c for c in r.stdout.split() if c]
+    if commits:
+        die(3, "non-scribe commit touched the record: " + ", ".join(commits))
+
+
+def append_transcript_sha(ws: Path, note: str):
+    transcript = ws / "transcript.md"
+    sha = sha256_file(transcript)
+    with transcript_sha_file(ws).open("a") as f:
+        f.write(f"{sha}  transcript.md  {note}\n")
+
+
+# ---------- open ----------
+
+def cmd_open(argv):
+    if len(argv) != 1:
+        die(2, "usage: tribunal-scribe open <ws>")
+    ws = Path(argv[0])
+
+    leftovers = []
+    if (ws / "turns").exists():
+        leftovers.append("turns/")
+    if list(ws.glob("seat-*.md")):
+        leftovers.append("seat-*.md")
+    if (ws / "transcript.md").exists():
+        leftovers.append("transcript.md")
+    if leftovers:
+        die(1, f"prior-run leftovers in {ws}: {', '.join(leftovers)} — move them to "
+                f"{ws}/prior-run-<ts>/ or pick a fresh workspace")
+
+    ws.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(["git", "-C", str(ws), "rev-parse", "HEAD"],
+                        capture_output=True, text=True)
+    if r.returncode != 0:
+        die(1, f"git rev-parse HEAD failed in {ws}: {r.stderr.strip()}")
+    head = r.stdout.strip()
+    opened = datetime.now(timezone.utc).isoformat()
+
+    marker_path(ws).write_text(f"head={head}\nopened={opened}\n")
+    (ws / "turns").mkdir(parents=True, exist_ok=True)
+    print(f"opened {ws} at head={head}")
+
+
+# ---------- append ----------
+
+def _heading_for_round(round_: int) -> bytes:
+    if round_ == 0:
+        return "## Round 0 — opening statements".encode()
+    return f"## Round {round_}".encode()
+
+
+def _longest_backtick_run(data: bytes) -> int:
+    longest = 0
+    run = 0
+    for b in data:
+        if b == 0x60:  # '`'
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 0
+    return longest
+
+
+def _fenced_line_indices(lines):
+    """Indices (into `lines`, a bytes-per-line split of transcript.md) that fall inside a
+    scribe-written fenced turn payload -- the fence-open line, its content, and the fence-close
+    line, inclusive. A judge's payload can legitimately contain a line that reads exactly
+    `## Round 2` or `### Seat 9 (fake) sha256:...` (that's the whole point of storing turns
+    byte-for-byte); heading/seat-header detection must never mistake that payload content for
+    real transcript structure. Mirrors the fence-open/skip-to-close walk _parse_transcript uses
+    to extract a turn's fenced_region, kept as its own pass so cmd_append's has_heading check
+    (which never walks fenced_region content) can reuse it too."""
+    fenced = set()
+    i, n = 0, len(lines)
+    while i < n:
+        line = lines[i]
+        if SEAT_RE.match(line):
+            j = i + 1
+            while j < n and lines[j] == b"":
+                j += 1
+            fm = FENCE_OPEN_RE.match(lines[j]) if j < n else None
+            if fm:
+                fence_len = len(fm.group(1))
+                close_pat = b"`" * fence_len
+                k = j
+                while k < n and lines[k] != close_pat:
+                    k += 1
+                end = k if k < n else n - 1
+                fenced.update(range(j, end + 1))
+                i = end + 1
+                continue
+        i += 1
+    return fenced
+
+
+def _has_real_heading(data: bytes, heading: bytes) -> bool:
+    """True iff `heading` appears as its own line OUTSIDE any fenced turn payload span (tribunal
+    fix step 3 review: a payload whose content is literally `## Round 2` must never suppress the
+    real Round 2 heading that gets written when that round's next turn actually arrives)."""
+    lines = data.split(b"\n")
+    fenced = _fenced_line_indices(lines)
+    return any(line == heading for idx, line in enumerate(lines) if idx not in fenced)
+
+
+def cmd_append(argv):
+    if len(argv) != 5:
+        die(2, "usage: tribunal-scribe append <ws> <round> <seat> <lens> <payload-file>")
+    ws = Path(argv[0])
+    try:
+        round_ = int(argv[1])
+        seat = int(argv[2])
+    except ValueError:
+        die(2, "round and seat must be integers")
+    lens = argv[3]
+    if not LENS_RE.match(lens):
+        die(2, f"invalid lens {lens!r}: must match {LENS_RE.pattern!r} "
+                "(lowercase alphanumeric + hyphen, no path separators)")
+    payload_file = Path(argv[4])
+
+    marker = require_marker(ws)
+    integrity_check(ws, marker["head"])
+
+    if not payload_file.is_file():
+        die(1, f"payload file not found: {payload_file}")
+    payload = payload_file.read_bytes()
+
+    turns_dir = ws / "turns"
+    turns_dir.mkdir(parents=True, exist_ok=True)
+    turn_path = turns_dir / f"r{round_}-s{seat}.md"
+    if turn_path.exists():
+        die(1, f"refuse to overwrite {turn_path}")
+    turn_path.write_bytes(payload)
+
+    if round_ == 0:
+        seat_path = ws / f"seat-{seat}-{lens}.md"
+        if seat_path.exists():
+            die(1, f"refuse to overwrite {seat_path}")
+        seat_path.write_bytes(payload)
+
+    # ---- transcript.md ----
+    transcript_path = ws / "transcript.md"
+    existing = transcript_path.read_bytes() if transcript_path.exists() else b""
+
+    heading = _heading_for_round(round_)
+    has_heading = _has_real_heading(existing, heading)
+    out = existing
+    if not has_heading:
+        if out and not out.endswith(b"\n\n"):
+            out += b"\n" if out.endswith(b"\n") else b"\n\n"
+        out += heading + b"\n\n"
+
+    fence_len = max(3, _longest_backtick_run(payload) + 1)
+    fence = b"`" * fence_len
+    body = payload if payload.endswith(b"\n") else payload + b"\n"
+    sha_full = sha256_bytes(payload)
+    seat_header = f"### Seat {seat} ({lens}) sha256:{sha_full}".encode()
+
+    out += seat_header + b"\n" + fence + b"turn\n" + body + fence + b"\n\n"
+    transcript_path.write_bytes(out)
+
+    append_transcript_sha(ws, f"after r{round_}-s{seat}")
+    print(f"appended round {round_} seat {seat} ({lens}) -> {turn_path}")
+
+
+# ---------- close ----------
+
+def cmd_close(argv):
+    if len(argv) != 3:
+        die(2, "usage: tribunal-scribe close <ws> <reason> <round>")
+    ws = Path(argv[0])
+    reason = argv[1]
+    try:
+        round_ = int(argv[2])
+    except ValueError:
+        die(2, "round must be an integer")
+    if reason not in REASONS:
+        die(2, f"reason must be one of {sorted(REASONS)}, got {reason!r}")
+
+    marker = require_marker(ws)
+    integrity_check(ws, marker["head"])
+
+    transcript_path = ws / "transcript.md"
+    existing = transcript_path.read_bytes() if transcript_path.exists() else b""
+    closing = f"## Closed — {reason}, round {round_}".encode()
+    out = existing
+    if out and not out.endswith(b"\n\n"):
+        out += b"\n" if out.endswith(b"\n") else b"\n\n"
+    out += closing + b"\n"
+    transcript_path.write_bytes(out)
+
+    append_transcript_sha(ws, "after close")
+    marker_path(ws).unlink(missing_ok=True)
+    print(f"closed {ws}: {reason}, round {round_}")
+
+
+# ---------- verify ----------
+
+def _parse_transcript(data: bytes):
+    """-> list of {round, seat, lens, hash, fenced_region} in file order. fenced_region is the
+    exact bytes the scribe wrote between the fences (see module docstring's trailing-newline
+    note) — always ends with exactly one \\n."""
+    lines = data.split(b"\n")
+    # Defense in depth on top of the fence-aware i-jumping below (which already never revisits
+    # fenced content directly): explicitly refuse to treat a payload's own `## Round N` /
+    # `### Seat n (...)` -shaped line as real structure, should that jumping logic ever change.
+    fenced = _fenced_line_indices(lines)
+    entries = []
+    current_round = None
+    i, n = 0, len(lines)
+    while i < n:
+        line = lines[i]
+        m = ROUND_RE.match(line) if i not in fenced else None
+        if m:
+            current_round = int(m.group(1))
+            i += 1
+            continue
+        m2 = SEAT_RE.match(line) if i not in fenced else None
+        if m2:
+            seat = int(m2.group(1))
+            lens = m2.group(2).decode("utf-8", "replace")
+            h = m2.group(3).decode()
+            i += 1
+            while i < n and lines[i] == b"":
+                i += 1
+            fm = FENCE_OPEN_RE.match(lines[i]) if i < n else None
+            if not fm:
+                continue  # malformed block — not a scribe-written turn, skip
+            fence_len = len(fm.group(1))
+            i += 1
+            content_start = i
+            close_pat = b"`" * fence_len
+            while i < n and lines[i] != close_pat:
+                i += 1
+            content_lines = lines[content_start:i]
+            fenced_region = b"\n".join(content_lines) + b"\n"
+            entries.append({"round": current_round, "seat": seat, "lens": lens,
+                             "hash": h, "fenced_region": fenced_region})
+            i += 1
+            continue
+        i += 1
+    return entries
+
+
+def cmd_verify(argv):
+    if len(argv) != 1:
+        die(2, "usage: tribunal-scribe verify <ws>")
+    ws = Path(argv[0])
+    issues = []
+
+    transcript_path = ws / "transcript.md"
+    transcript_data = transcript_path.read_bytes() if transcript_path.exists() else b""
+    entries = _parse_transcript(transcript_data)
+
+    # 1. every turns/ file sha vs the sha in its transcript heading
+    by_key = {}
+    for e in entries:
+        by_key[(e["round"], e["seat"])] = e
+    turns_dir = ws / "turns"
+    turn_files = sorted(turns_dir.glob("r*-s*.md")) if turns_dir.exists() else []
+    seen_keys = set()
+    turn_re = re.compile(r'^r(\d+)-s(\d+)\.md$')
+    for tf in turn_files:
+        m = turn_re.match(tf.name)
+        if not m:
+            continue
+        key = (int(m.group(1)), int(m.group(2)))
+        seen_keys.add(key)
+        e = by_key.get(key)
+        if e is None:
+            issues.append(f"turns/{tf.name}: no matching transcript heading")
+            continue
+        actual = sha256_file(tf)
+        if actual != e["hash"]:
+            issues.append(f"turns/{tf.name}: sha256 {actual} != transcript heading sha {e['hash']}")
+    for key, e in by_key.items():
+        if key not in seen_keys:
+            issues.append(f"transcript round {e['round']} seat {e['seat']}: no turns/r{key[0]}-s{key[1]}.md on disk")
+
+    # 2. transcript sha vs TRANSCRIPT.SHA256 last line
+    recorded = last_recorded_sha(ws)
+    if transcript_path.exists() or recorded is not None:
+        actual_transcript_sha = sha256_file(transcript_path) if transcript_path.exists() else None
+        if recorded is None:
+            issues.append("TRANSCRIPT.SHA256 missing or empty while transcript.md exists")
+        elif actual_transcript_sha != recorded:
+            issues.append(f"transcript.md sha {actual_transcript_sha} != TRANSCRIPT.SHA256 last line {recorded}")
+
+    # 3. each fenced payload byte-equals its turns/ file (up to the one controlled trailing
+    # newline noted in the module docstring)
+    for e in entries:
+        key = (e["round"], e["seat"])
+        if key not in seen_keys:
+            continue  # already reported above
+        tf = turns_dir / f"r{key[0]}-s{key[1]}.md"
+        turn_bytes = tf.read_bytes()
+        ok = e["fenced_region"] == turn_bytes or e["fenced_region"] == turn_bytes + b"\n"
+        if not ok:
+            issues.append(f"transcript round {key[0]} seat {key[1]}: fenced payload != turns/{tf.name}")
+
+    if issues:
+        print(f"{PROG} verify: {len(issues)} issue(s) in {ws}")
+        for i in issues:
+            print(f"  - {i}")
+        sys.exit(3)
+    print(f"{PROG} verify: clean ({ws})")
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv:
+        die(2, "usage: tribunal-scribe <open|append|close|verify> ...")
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "open":
+        cmd_open(rest)
+    elif cmd == "append":
+        cmd_append(rest)
+    elif cmd == "close":
+        cmd_close(rest)
+    elif cmd == "verify":
+        cmd_verify(rest)
+    else:
+        die(2, f"unknown subcommand: {cmd}")
+
+
+if __name__ == "__main__":
+    main()

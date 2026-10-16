@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"model":"plain-model","content":[{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"@CWD@/plans/demo/TRACKER.md","content":"x"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"done","is_error":false}]}}

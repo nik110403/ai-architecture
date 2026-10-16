@@ -1,6 +1,6 @@
 # Workflows
 
-These are portable process contracts derived from inspected workflow families. The
+These are portable process contracts written up from the workflows I use. The
 stdlib router reports a conservative route from explicit input only; it is not
 executable automation. The active harness decides available models, tools,
 permissions, isolation, scheduling, and persistence. In every journey, a missing
@@ -24,7 +24,7 @@ reason to invent a successful run.
 
 `scripts/route.py` reports route, required context, roles, stable capability IDs,
 ordered checks, available/missing adapters, stop/approval conditions, and fallback.
-Unknown or mixed intent, no-port source families, critical missing ports,
+Unknown or mixed intent, entry points with no tool included, missing required tools,
 missing checker model roles, exhausted review budget, pending jobs, and unknown arrivals
 refuse a COMPLETE route. External action stays CONDITIONAL even with reported typed
 state-bound approval metadata: the active harness remains the authority. Manual mode
@@ -96,7 +96,7 @@ missing-adapter action.
 available building blocks. No renderer, browser, slide, infographic, recap, or
 system-atlas adapter is included. The
 [specialist playbooks](skills/specialist-journeys/playbooks.md) now include a
-source-inspected design/visual lifecycle; the process translation does not bundle
+written-up design/visual lifecycle; the process translation does not bundle
 its renderer, visual generator, browser or native agents.
 
 ## Knowledge and maintenance journey
@@ -120,7 +120,7 @@ adapter in that snapshot, not health, freshness, or live proof. The optional
 [snapshot consistency checker](skills/continuity/continuity-check.md) compares
 explicit tracker bytes and caller-declared receipts, not actual native readiness.
 The memory reporter remains a limited explicit-root diagnostic; job ledgers,
-native scheduling and automatic repair remain unported. Source-inspected
+native scheduling and automatic repair are not included. Written-up
 [specialist playbooks](skills/specialist-journeys/playbooks.md) add manual bootstrap,
 scouting, troubleshooting/security and retrospective/promotion decisions without
 activating their native tools.
@@ -154,7 +154,7 @@ record. It is not browser automation, a permission grant, or a submission ledger
 
 [examples/system-journey/](examples/system-journey/) deterministically exercises
 task → route → bounded brief → fixture result → independent check → persisted Next and
-fresh-process recovery. It additionally proves a no-port refusal and a
+fresh-process recovery. It additionally shows a refusal for an entry point with no tool included and a
 pending-job refusal. The fixture is authored evidence, not an AI-performance claim;
 its saved Next is data and is never executed.
 
@@ -163,11 +163,19 @@ offline tools in a fresh temporary project and demonstrates only a fixed, litera
 Next. Its inputs are authored fixtures, not a recipient's real project or an
 AI builder/checker transcript.
 
+## Where the rules are enforced
+
+Most of the steps above are instructions an agent follows. Three pieces make some of them real, and only if
+you install them: the [gates plugin](plugins/gates/README.md) (hooks that block destructive commands and
+unreviewed or unrecorded stops), the [OpenCode bridge](opencode/README.md) (the same hooks inside OpenCode)
+and opt-in [model rotation](opencode/rotation/README.md). [INSTALL.md](INSTALL.md) says how to turn each on and
+off. Everything else here stays described.
+
 ## What this does not prove
 
-This collection maps inspected source families and adds report-only routing,
-specialist process ports, and a deterministic local journey. It does not prove native
-enforcement, automatic routing, agent/platform behavior, model selection, external
-acts, or whole-system completeness. Follow the selective installation guidance in
-[INSTALL.md](INSTALL.md), run its offline checks, and treat unported families as
-explicit adoption work.
+This collection describes the workflows I use and adds
+specialist process playbooks, and a deterministic local journey, plus the opt-in guard hooks above. It does not prove
+native enforcement of the described workflows, automatic routing, agent/platform behavior, model selection, external
+acts, or that the whole private setup is reproduced here. Follow the selective installation guidance in
+[INSTALL.md](INSTALL.md), run its offline checks, and treat anything not included as
+adoption work you do yourself.

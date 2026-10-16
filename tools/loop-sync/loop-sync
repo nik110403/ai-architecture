@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# loop-sync — verify that each loop in a LOOPS.md-format registry is actually wired.
+# Catches "documented as live but not running" drift. Read-only; prints a report.
+# Everything it checks (hosts, units, hooks) comes from the registry; nothing is hard-coded.
+usage() {
+  cat <<'EOF'
+loop-sync — verify each loop in a registry is actually wired.
+Usage: loop-sync --registry <LOOPS.md> [--strict] [--host <name>] [--settings <file>]
+  --registry <file>  LOOPS.md-format registry (or set LOOPS_FILE). Required.
+  --strict           exit 1 if any registry row is documented-but-unwired. The default run
+                     always exits 0; output is identical either way.
+  --host <name>      treat this as the current host (default: `hostname -s`)
+  --settings <file>  JSON/text settings file searched by `hook:` checks (default: none, so
+                     hook checks report "not checkable")
+Registry columns are found by header name: `Loop` (first cell, in backticks), `Hosts`
+(`any` or a comma list), `Check` (`;`-separated `timer:<unit>`, `service:<unit>`,
+`hook:<name>`, `file:<path>`), and `STATUS` (a leading marker: ✅ live, ⚠️ warn, ⛔ dead).
+Checks that cannot run here (no systemd, no settings file) are reported as "not checkable",
+never as a failure and never as a crash. Usage errors exit 2.
+EOF
+}
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then usage; exit 0; fi
+
+set -uo pipefail
+
+STRICT=0
+REGISTRY="${LOOPS_FILE:-}"
+HOST=""
+SETTINGS=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --strict) STRICT=1; shift ;;
+    --registry|--file)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "loop-sync: $1 needs a value" >&2; exit 2; }
+      REGISTRY="$2"; shift 2 ;;
+    --host)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "loop-sync: --host needs a value" >&2; exit 2; }
+      HOST="$2"; shift 2 ;;
+    --settings)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "loop-sync: --settings needs a value" >&2; exit 2; }
+      SETTINGS="$2"; shift 2 ;;
+    *) echo "loop-sync: unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+if [[ -z "$REGISTRY" ]]; then echo "loop-sync: --registry <file> is required" >&2; usage >&2; exit 2; fi
+if [[ ! -r "$REGISTRY" ]]; then echo "loop-sync: cannot read registry: $REGISTRY" >&2; exit 2; fi
+[[ -n "$HOST" ]] || HOST="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo unknown)"
+REG_DIR="$(cd "$(dirname "$REGISTRY")" && pwd)"
+
+VIOLATIONS=0
+green()  { printf '%s\n' "$1"; }
+yellow() { printf '%s\n' "$1"; }
+red()    { printf '%s\n' "$1"; VIOLATIONS=$((VIOLATIONS+1)); }
+
+# systemd usable? Needs the binary AND a reachable user manager. Otherwise unit checks are
+# "not checkable" (a container, CI runner, or non-systemd OS is not a wiring failure).
+SYSTEMD_OK=0
+if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+  SYSTEMD_OK=1
+fi
+
+check_timer() {  # unit
+  local unit="$1" load="" active="" enabled=""
+  if (( ! SYSTEMD_OK )); then yellow "    ⚠️  ${unit} — not checkable (no usable systemd user manager here)"; return; fi
+  { read -r load; read -r active; read -r enabled; } < <(systemctl --user show "$unit" -p LoadState,ActiveState,UnitFileState --value 2>/dev/null) || true
+  if [[ "$active" == "active" || "$active" == "waiting" ]]; then
+    green "    ✅ ${unit} — timer active"
+  elif [[ "$load" == "loaded" ]]; then
+    yellow "    ⚠️  ${unit} — unit exists but timer not active"
+  else
+    red   "    ⛔ ${unit} — NOT INSTALLED (registry claims it is wired)"
+  fi
+}
+
+check_service() {  # unit
+  local unit="$1"
+  if (( ! SYSTEMD_OK )); then yellow "    ⚠️  ${unit} — not checkable (no usable systemd user manager here)"; return; fi
+  if systemctl --user is-active --quiet "$unit"; then
+    green "    ✅ ${unit} — service active"
+  elif systemctl --user cat "$unit" >/dev/null 2>&1; then
+    yellow "    ⚠️  ${unit} — unit exists but not running"
+  else
+    red   "    ⛔ ${unit} — NOT INSTALLED (registry claims it is wired)"
+  fi
+}
+
+check_hook() {  # name
+  local name="$1"
+  if [[ -z "$SETTINGS" ]]; then yellow "    ⚠️  ${name} — not checkable (no --settings file given)"; return; fi
+  if [[ ! -r "$SETTINGS" ]]; then yellow "    ⚠️  ${name} — not checkable (settings file unreadable)"; return; fi
+  if grep -qiF -- "$name" "$SETTINGS" 2>/dev/null; then
+    green "    ✅ ${name} — referenced in settings file"
+  else
+    red   "    ⛔ ${name} — NOT in settings file"
+  fi
+}
+
+check_file() {  # path (relative paths are relative to the registry's directory)
+  local p="$1"
+  [[ "$p" == /* ]] || p="$REG_DIR/$p"
+  if [[ -e "$p" ]]; then green "    ✅ $1 — exists"; else red "    ⛔ $1 — MISSING"; fi
+}
+
+trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+
+# Registry -> TSV: name <TAB> hosts <TAB> check <TAB> status. Columns located by header name;
+# data rows are table rows whose first cell starts with a backtick (the registry convention).
+ROWS="$(awk -F'|' '
+  function t(v) { gsub(/^[ \t]+|[ \t]+$/, "", v); return v }
+  !hdr && /^\|/ {
+    h = 0; k = 0; s = 0
+    for (i = 2; i < NF; i++) {
+      c = t($i)
+      if (c == "Hosts") h = i
+      if (c == "Check") k = i
+      if (c == "STATUS") s = i
+    }
+    if (s) { hdr = 1 }
+    next
+  }
+  hdr && /^\| *`/ {
+    name = t($2); gsub(/`/, "", name)
+    printf "%s\t%s\t%s\t%s\n", name, (h ? t($h) : ""), (k ? t($k) : ""), (s ? t($s) : "")
+  }
+' "$REGISTRY")"
+
+echo "loop-sync — wiring check (host: $HOST)"
+echo "registry: $(basename "$REGISTRY")"
+if (( ! SYSTEMD_OK )); then echo "note: no usable systemd user manager here; timer/service checks are 'not checkable'"; fi
+echo
+
+DEAD_ROWS=0
+ROW_COUNT=0
+if [[ -n "$ROWS" ]]; then
+  while IFS=$'\t' read -r name hosts check status; do
+    ROW_COUNT=$((ROW_COUNT+1))
+    echo "  $name"
+    # status marker (the registry's own claim): a leading ⛔ is a documented-dead row.
+    [[ "$status" == ⛔* ]] && DEAD_ROWS=$((DEAD_ROWS+1))
+
+    applies=1
+    if [[ -n "$hosts" && "${hosts,,}" != "any" ]]; then
+      applies=0
+      IFS=',' read -ra hl <<<"$hosts"
+      for h in "${hl[@]}"; do [[ "$(trim "$h")" == "$HOST" ]] && applies=1; done
+    fi
+    if (( ! applies )); then
+      yellow "    ⚠️  scoped to host(s) $hosts — skipped on $HOST (expected absent)"
+      continue
+    fi
+    if [[ -z "$check" || "${check,,}" == "none" ]]; then
+      yellow "    ⚠️  no Check in registry — nothing to verify"
+      continue
+    fi
+    IFS=';' read -ra checks <<<"$check"
+    for c in "${checks[@]}"; do
+      c="$(trim "$c")"; c="${c//\`/}"
+      [[ -n "$c" ]] || continue
+      kind="${c%%:*}"; arg="$(trim "${c#*:}")"
+      if [[ "$kind" == "$c" || -z "$arg" ]]; then yellow "    ⚠️  malformed check '$c' (expected type:value)"; continue; fi
+      case "$kind" in
+        timer)   check_timer "$arg" ;;
+        service) check_service "$arg" ;;
+        hook)    check_hook "$arg" ;;
+        file)    check_file "$arg" ;;
+        *)       yellow "    ⚠️  unknown check type '$kind'" ;;
+      esac
+    done
+  done <<<"$ROWS"
+fi
+if (( ROW_COUNT == 0 )); then yellow "  ⚠️  no registry rows found (expected a table with a STATUS column)"; fi
+echo
+echo "Legend: ✅ wired · ⚠️ warning / not checkable / skipped · ⛔ dead (fix the unit, or the registry row)"
+
+# --strict: a row that self-documents as dead (STATUS starts with ⛔) is also a violation. Counted
+# silently so output is the same with and without --strict.
+if (( STRICT )); then VIOLATIONS=$((VIOLATIONS + DEAD_ROWS)); fi
+if (( STRICT && VIOLATIONS > 0 )); then exit 1; fi
+exit 0

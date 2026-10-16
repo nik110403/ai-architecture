@@ -1,0 +1,697 @@
+#!/usr/bin/env bash
+# plancheck — deterministic integrity linter over plan-pack trios (STRATEGY/SPEC/TRACKER +
+# QUESTIONS/POINTER). Zero-token, NO LLM, bash + awk + coreutils only.
+#
+# Scope: DEFAULT sweeps every `./plans/*/` dir (relative to the current directory) that
+# contains a TRACKER.md. `--dir <path>` scopes to one pack (path itself has TRACKER.md) or to
+# one parent (path's immediate subdirs are swept, e.g. `--dir plans`).
+#
+# Checks (per pack):
+#   1. Resume block missing    no `## Resume here` heading in TRACKER.md      → ⛔
+#   2. dangling Blocked-by     `Blocked-by: Qn` in a SPEC file, Qn absent      → ⛔
+#      from QUESTIONS.md (or QUESTIONS.md missing entirely)                   (checked even
+#                                                                               on skipped packs)
+#   3. Resume block >15 lines  content between the heading and the next `## ` → ℹ️
+#   4. tracker ≥50KB           TRACKER.md file size                          → ℹ️
+#   5. decision-log row >250c  `| ... |` row under `## Decision log` heading  → ℹ️
+#   6. Goal absent/vague       no `Goal:` while pack is active, or a Goal    → ℹ️
+#                               line with no measurable term (heuristic)
+#   7. Last verified absent    no `Last verified:` footer in TRACKER.md       → ℹ️
+#   8. nonconforming filename  lowercase strategy.md/spec.md/tracker.md/     → ℹ️
+#                               spec-*.md (canonical is uppercase)
+#   9. dead cross-link         `](target.md)` in a trio file, target missing  → ℹ️
+#  10. dangling Needs          `Needs: Sn` in a SPEC file, no "### Sn —"      → ⛔
+#      heading for Sn in ANY of the pack's SPEC.md/SPEC-*.md files            (checked even
+#                                                                               on skipped packs)
+#  11. Touches overlap         two items in one pack whose Touches: prefixes → ℹ️
+#      w/o Needs edge          overlap (string prefix, either direction) and
+#                               neither item's Needs: lists the other (single-hop
+#                               only — no transitive closure, deliberately out of scope)
+#  12. open Qn soft cap       QUESTIONS.md has >5 open `## Qn` blocks (no          → ℹ️
+#                               `Answered:` inside the block); plus one summary-line
+#                               aggregate `Assumption lines: N across M packs`
+#                               (count of `- Assumption:` lines in active packs' SPEC*.md)
+#  13. item field coverage    a `### <ID> — ` SPEC item missing `Acceptance:`,     → ℹ️
+#                               `Verify:` or `Touches:` (`Needs:` is counted, never
+#                               flagged — a root item legitimately has none); plus one
+#                               per-pack `fields: Acc a/n · Ver v/n · Needs x/n ·
+#                               Touches t/n` line. Section-divider headings without
+#                               the literal " — " (e.g. "### Out of scope") are not items.
+#  14. unjustified gate        a `### <ID> — ` item whose `- Gate:` value starts     → ℹ️
+#                               with `human` but gives no reason from the closed list
+#                               (outside (the) repo, delete, overwrite, (live) install,
+#                               merge, money, external; case-insensitive keyword), or a
+#                               Gate: value that is neither `auto` nor `human…` (invalid).
+#                               Absent Gate: = auto, never flagged.
+#  15. Resume Next waits       a `Next` line in TRACKER.md's Resume block matching   → ℹ️
+#      without a gate           `on the owner's go` / `awaiting human|owner|approval` / `human's go`
+#                               (case-insensitive) that names no item ID carrying
+#                               `Gate: human` in the pack's SPEC files. One entry per pack.
+#  16. Outcome/First-result    active pack's TRACKER.md lacks `Outcome:` or             → ℹ️
+#      missing                  `First-result:` (bold markers optional)
+#  17. First-result overdue    `First-result: … due YYYY-MM-DD — open`, date < today  → ⛔
+#  18. Delivered stale         Resume block has no `Delivered:` line, or its last    → ℹ️
+#                               `(YYYY-MM-DD)` is >21 days old: continue/descope/park/abandon?
+#  19. Trigger past due        STRATEGY `Trigger: DATE | check | action | open`,     → ⛔
+#                               DATE < today
+#  20. Stakes/Lane coverage    counted only: appended to the check-13 `fields:` line
+#                               (` · Stakes s/n · Lane l/n`, `Lane:`/`Stakes:` may share a
+#                               line separated by ` · `; `Box: n sessions` count appended)
+#  21. >3 active packs/repo    more than 3 active packs under one repo's plans/       → ℹ️
+#  22. Box expired             `Box: n days — started D`, D+n < today, and the item   → ℹ️
+#                               is not done in the tracker status table (`sessions`
+#                               boxes cannot be computed — counted only, never flagged)
+#      Clock = `Last delivered:` line date, else the `Delivered:` line date unless its text
+#      starts with `none` (a `none (today)` line never resets the clock), else the first
+#      decision-log row date; no date at all → flagged as absent.
+#      Check 20 also counts `Lane: use` items with no `feeds:` text (count only).
+#  23. repair w/o Lineage      item id matching S<digits><letter> (e.g. S6a) or whose  → ℹ️
+#                               `What:` contains fix|repair, with no `Lineage:` line
+#
+# A pack whose TRACKER.md header matches `Status: (done|abandoned|promoted|parked)` (any casing,
+# optionally bold: `**Status: done**`) is SKIPPED entirely except checks 2 and 10 (dangling
+# Blocked-by / dangling Needs are checked regardless of status). No Status line at all =
+# treat as active.
+#
+# Explicitly OUT of scope (per spec): no git-activity heuristics, no tier→files check,
+# no transitive Needs/Touches closure, no cycle detection (check 11 is single-hop only).
+# `*sync-conflict*` files excluded throughout (sync tools leave them behind).
+#
+# Exit status (changed from the original report-only tool): 0 when there is no ⛔ finding,
+# 1 when at least one ⛔ is reported, so a script or CI step can gate on it. `--report-only`
+# restores always-exit-0. ℹ️ findings never affect the exit status. Output states the swept
+# scope ("N packs swept").
+# --list-packs: skip the report, print the swept pack dirs one per line (absolute paths).
+# Override scope for testing: PLANCHECK_DEFAULT_ROOT=/path/to/scratch plancheck (the default
+# sweep then reads <root>/*/plans/*/ instead of ./plans/*/).
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat <<'EOF'
+plancheck — deterministic integrity linter over plan-pack trios (STRATEGY/SPEC/TRACKER + QUESTIONS/POINTER). Zero-token, no model calls.
+Usage: plancheck [--dir <path>] [--list-packs] [--report-only]
+Purpose: check plan-pack structure and cross-reference integrity.
+Exit: 0 = no blocking (⛔) finding, 1 = at least one; --report-only always exits 0.
+EOF
+  exit 0
+fi
+
+set -uo pipefail
+shopt -s nullglob
+
+PROJECTS_ROOT="${PLANCHECK_DEFAULT_ROOT:-}"  # unset = sweep ./plans/*/ of the current directory
+
+ONE_DIR=""
+LIST_PACKS=0
+REPORT_ONLY=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dir)
+      # under `set -uo pipefail` (no -e), `shift 2` with only 1 arg left would hang the loop —
+      # require a non-empty value before consuming it.
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "usage: plancheck [--dir <path>] — --dir requires a non-empty value" >&2
+        exit 0
+      fi
+      ONE_DIR="$2"; shift 2 ;;
+    --list-packs) LIST_PACKS=1; shift ;;
+    --report-only) REPORT_ONLY=1; shift ;;
+    *) shift ;;
+  esac
+done
+
+default_packs() {
+  local d
+  local -a globs
+  if [[ -n "$PROJECTS_ROOT" ]]; then globs=("$PROJECTS_ROOT"/*/plans/*/); else globs=(plans/*/); fi
+  for d in "${globs[@]}"; do
+    d="${d%/}"
+    [[ -f "$d/TRACKER.md" ]] && printf '%s\n' "$d"
+  done
+}
+
+dir_packs() {  # dir — a pack itself, or a parent whose immediate subdirs are packs
+  local dir="${1%/}" d
+  if [[ -f "$dir/TRACKER.md" ]]; then
+    printf '%s\n' "$dir"
+  else
+    for d in "$dir"/*/; do
+      d="${d%/}"
+      [[ -f "$d/TRACKER.md" ]] && printf '%s\n' "$d"
+    done
+  fi
+}
+
+if [[ -n "$ONE_DIR" ]]; then
+  mapfile -t packs < <(dir_packs "$ONE_DIR")
+else
+  mapfile -t packs < <(default_packs)
+fi
+
+if (( LIST_PACKS )); then
+  printf '%s\n' "${packs[@]}"
+  exit 0
+fi
+
+label() { printf '%s' "${1/#$HOME/~}"; }  # dir -> ~-relative path for report readability
+
+# pack Status: search TRACKER.md for `Status: <value>` (optionally bold), first 15 lines only
+# (header convention, template puts it right under the title).
+pack_status() {  # tracker
+  head -15 "$1" 2>/dev/null | grep -oiE 'Status:[[:space:]]*\**[a-z]+' | head -1 \
+    | sed -E 's/.*[Ss]tatus:[[:space:]]*\**//I' | tr '[:upper:]' '[:lower:]'
+}
+
+trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
+
+# string path-prefix overlap: trim trailing / from both, then check either is a literal
+# string prefix of the other (Touches: entries are literal prefixes, no globs).
+overlap_prefix() {  # a b
+  local a="${1%/}" b="${2%/}"
+  [[ "$b" == "$a"* || "$a" == "$b"* ]]
+}
+
+# does item $1's Needs: list contain item id $2? (single-hop, no transitive closure)
+needs_has() {  # id other
+  local id="$1" other="$2" n
+  local -a arr
+  IFS=',' read -ra arr <<< "${item_needs[$id]:-}"
+  for n in "${arr[@]}"; do
+    [[ "$(trim "$n")" == "$other" ]] && return 0
+  done
+  return 1
+}
+
+resume_missing_list=(); resume_long_list=(); size_list=(); decisionrow_list=()
+goal_list=(); footer_list=(); filename_list=(); crosslink_list=(); blocked_list=()
+needs_dangling_list=(); touches_overlap_list=()
+openq_list=(); fieldcov_list=(); gate_list=(); nextwait_list=()
+lineage_list=(); outcome_list=(); firstres_list=(); delivered_list=(); trigger_list=(); box_list=(); parked_list=(); repo_list=()
+declare -A repo_active=()
+TODAY="$(date +%F)"; STALE_CUTOFF="$(date -d '-21 days' +%F)"
+date_re='[0-9]{4}-[0-9]{2}-[0-9]{2}'
+assumption_total=0
+declare -A assumption_pack_seen=()
+
+for dir in "${packs[@]}"; do
+  [[ -d "$dir" ]] || continue
+  lbl="$(label "$dir")"
+  tracker="$dir/TRACKER.md"
+
+  # check 2 (dangling Blocked-by) runs regardless of pack status — see header note.
+  questions="$dir/QUESTIONS.md"
+  mapfile -t specfiles < <(find "$dir" -maxdepth 1 \( -name 'SPEC.md' -o -name 'SPEC-*.md' \) ! -name '*sync-conflict*')
+  for sf in "${specfiles[@]}"; do
+    mapfile -t qrefs < <(grep -oE 'Blocked-by:[[:space:]]*Q[0-9]+' "$sf" 2>/dev/null | grep -oE 'Q[0-9]+' | sort -u)
+    for q in "${qrefs[@]}"; do
+      if [[ ! -f "$questions" ]]; then
+        blocked_list+=("$lbl/$(basename "$sf"): Blocked-by: $q — no QUESTIONS.md in pack")
+      elif ! grep -qE "^## ${q}([[:space:]]|$|·)" "$questions" 2>/dev/null; then
+        blocked_list+=("$lbl/$(basename "$sf"): Blocked-by: $q — no \"## $q\" heading in QUESTIONS.md")
+      fi
+    done
+  done
+
+  # parse item headings + Needs:/Touches: lines across all of the pack's SPEC files (once,
+  # reused by checks 10 and 11). Reset per-pack: state is scoped to this dir's items only.
+  declare -A item_needs=() item_touches=()
+  item_ids=()
+  while IFS=$'\t' read -r kind key val; do
+    case "$kind" in
+      ID) item_ids+=("$key") ;;
+      N)  item_needs["$key"]="$val" ;;
+      T)  item_touches["$key"]="$val" ;;
+    esac
+  done < <(
+    for sf in "${specfiles[@]}"; do
+      awk '
+        /^### [A-Za-z0-9]+[[:space:]]/ { id=$2; print "ID\t" id; next }
+        /^- Needs:/ {
+          line=$0
+          sub(/^- Needs:[[:space:]]*/, "", line); sub(/<.*/, "", line)
+          print "N\t" id "\t" line; next
+        }
+        /^- Touches:/ {
+          line=$0
+          sub(/^- Touches:[[:space:]]*/, "", line); sub(/<.*/, "", line)
+          print "T\t" id "\t" line; next
+        }
+      ' "$sf" 2>/dev/null
+    done
+  )
+
+  # 10. dangling Needs (runs regardless of pack status — mirrors check 2, see header note)
+  for id in "${item_ids[@]}"; do
+    [[ -n "${item_needs[$id]+x}" ]] || continue
+    IFS=',' read -ra needs_arr <<< "${item_needs[$id]}"
+    for raw in "${needs_arr[@]}"; do
+      n="$(trim "$raw")"
+      [[ -z "$n" || "${n,,}" == none ]] && continue  # "Needs: none" = a root item
+      # here-string, not `printf | grep -q`: grep -q exits on the first match, printf can then die of SIGPIPE and
+      # `set -o pipefail` turns that race into a false "dangling Needs" under load
+      if ! grep -qxF "$n" <<< "$(printf '%s\n' "${item_ids[@]}")"; then
+        needs_dangling_list+=("$lbl: $id Needs: $n — no \"### $n —\" heading in pack's SPEC files")
+      fi
+    done
+  done
+
+  status="$(pack_status "$tracker")"
+  case "$status" in
+    done|abandoned|promoted) continue ;;  # skip everything below — active-pack checks only
+    parked)
+      grep -q 'Parked-until:' "$tracker" 2>/dev/null || parked_list+=("$lbl — parked but TRACKER.md has no \"Parked-until:\"")
+      continue ;;
+  esac
+  repo_key="$(dirname "$(dirname "$dir")")"
+  repo_active["$repo_key"]=$(( ${repo_active[$repo_key]:-0} + 1 ))
+
+  # 1. Resume block
+  if ! grep -q '^## Resume here' "$tracker" 2>/dev/null; then
+    resume_missing_list+=("$lbl — no \"## Resume here\" heading in TRACKER.md")
+  else
+    n="$(awk '/^## Resume here/{f=1;next} /^## /{f=0} f{c++} END{print c+0}' "$tracker")"
+    (( n > 15 )) && resume_long_list+=("$lbl — Resume block is $n lines (>15)")
+  fi
+
+  # 4. tracker size
+  sz="$(stat -c %s "$tracker" 2>/dev/null || echo 0)"
+  (( sz >= 51200 )) && size_list+=("$lbl — TRACKER.md is $(( sz / 1024 ))KB (>=50KB)")
+
+  # 5. decision-log row length
+  sep_re='^\|[-:| ]+\|$'
+  while IFS= read -r row; do
+    [[ "$row" =~ $sep_re ]] && continue   # separator row
+    len=${#row}
+    (( len > 250 )) && decisionrow_list+=("$lbl — decision-log row is $len chars (>250): ${row:0:80}...")
+  done < <(awk '/^## Decision log/{f=1;next} /^## /{f=0} f && /^\|/' "$tracker" 2>/dev/null)
+
+  # 6. Goal absent / vague (pack is active here — done/abandoned/promoted already `continue`d).
+  # Vague check is a heuristic, not a grammar check: no digit and no measurable-sounding word
+  # anywhere on the Goal line — flags "feature X works" but not "test.sh exits 0".
+  goal_line="$(grep -m1 'Goal:' "$tracker" 2>/dev/null)"
+  if [[ -z "$goal_line" ]]; then
+    goal_list+=("$lbl — no \"Goal:\" line, pack is active")
+  elif ! grep -qiE '[0-9]|exit|pass|fail|test|command|count|file|metric|status|green|verify' <<< "$goal_line"; then
+    goal_list+=("$lbl — Goal line looks vague (no measurable term: exit/pass/count/file/...)")
+  fi
+
+  # 7. Last verified footer
+  grep -q 'Last verified:' "$tracker" 2>/dev/null || footer_list+=("$lbl — TRACKER.md has no \"Last verified:\" footer")
+
+  # 8. nonconforming filenames (only the specific lowercase strategy/spec/tracker variants)
+  mapfile -t mdfiles < <(find "$dir" -maxdepth 1 -name '*.md' ! -name '*sync-conflict*' -printf '%f\n')
+  for f in "${mdfiles[@]}"; do
+    case "$f" in
+      strategy.md|spec.md|tracker.md|spec-*.md)
+        filename_list+=("$lbl/$f — lowercase, canonical is uppercase (e.g. TRACKER.md)") ;;
+    esac
+  done
+
+  # 9. dead cross-links within the trio files (relative same-dir .md targets only)
+  for f in "${mdfiles[@]}"; do
+    case "$f" in
+      STRATEGY.md|SPEC.md|SPEC-*.md|TRACKER.md|QUESTIONS.md|POINTER.md) ;;
+      *) continue ;;
+    esac
+    mapfile -t targets < <(grep -oE '\]\([A-Za-z0-9_.-]+\.md\)' "$dir/$f" 2>/dev/null | sed -E 's/^\]\(|\)$//g' | sort -u)
+    for t in "${targets[@]}"; do
+      [[ -f "$dir/$t" ]] || crosslink_list+=("$lbl/$f → missing target: $t")
+    done
+  done
+
+  # 11. Touches overlap without a Needs edge (single-hop only, see header note)
+  touch_ids=()
+  for id in "${item_ids[@]}"; do
+    [[ -n "${item_touches[$id]+x}" ]] && touch_ids+=("$id")
+  done
+  for (( ti=0; ti<${#touch_ids[@]}; ti++ )); do
+    for (( tj=ti+1; tj<${#touch_ids[@]}; tj++ )); do
+      id_a="${touch_ids[$ti]}"; id_b="${touch_ids[$tj]}"
+      needs_has "$id_a" "$id_b" && continue
+      needs_has "$id_b" "$id_a" && continue
+      IFS=',' read -ra touches_a <<< "${item_touches[$id_a]}"
+      IFS=',' read -ra touches_b <<< "${item_touches[$id_b]}"
+      for raw_a in "${touches_a[@]}"; do
+        ta="$(trim "$raw_a")"
+        [[ -z "$ta" ]] && continue
+        for raw_b in "${touches_b[@]}"; do
+          tb="$(trim "$raw_b")"
+          [[ -z "$tb" ]] && continue
+          if overlap_prefix "$ta" "$tb"; then
+            touches_overlap_list+=("$lbl: $id_a / $id_b — overlapping Touches (\"$ta\" / \"$tb\"), no Needs edge")
+          fi
+        done
+      done
+    done
+  done
+
+  # 12. open Qn soft cap — QUESTIONS.md blocks (`## Qn` through the next `## `, answered
+  # ones carry the whole heading in ~~strikethrough~~ per the template convention) with no
+  # `Answered:` line anywhere in the block.
+  if [[ -f "$questions" ]]; then
+    open_q="$(awk '
+      /^## (~~)?Q[0-9]+/ { if (inq && !answered) c++; inq=1; answered=0; next }
+      /^## /            { if (inq && !answered) c++; inq=0; next }
+      inq && /Answered:/ { answered=1 }
+      END { if (inq && !answered) c++; print c+0 }
+    ' "$questions" 2>/dev/null)"
+    open_q="${open_q:-0}"
+    (( open_q > 5 )) && openq_list+=("$lbl — $open_q open questions (soft cap 5)")
+  fi
+
+  # Assumption lines aggregate (active packs' SPEC*.md only) — feeds the summary-line
+  # aggregate, not a per-pack ℹ️ entry.
+  pack_assump=0
+  for sf in "${specfiles[@]}"; do
+    c="$(grep -cE '^- Assumption:' "$sf" 2>/dev/null)"
+    pack_assump=$(( pack_assump + c ))
+  done
+  if (( pack_assump > 0 )); then
+    assumption_total=$(( assumption_total + pack_assump ))
+    assumption_pack_seen["$dir"]=1
+  fi
+
+  # 13. item field coverage — Acceptance:/Verify:/Touches: presence per "### <ID> — " item.
+  # Deliberately stricter than the check-10/11 item parse above (which matches any
+  # "### <alnum> " heading): a bare section divider like "### Out of scope" or
+  # "### F1 non-goals (recorded)" has no id-then-em-dash form and is not an item, so it must
+  # not be flagged as missing fields.
+  item_total=0; acc_have=0; ver_have=0; needs_have=0; touches_have=0; stakes_have=0; lane_have=0; usenofeed=0
+  while IFS=$'\t' read -r fid facc fver ftouches fneeds fstakes flane fnofeed flineage frepair; do
+    [[ -z "$fid" ]] && continue
+    item_total=$(( item_total + 1 ))
+    missing=()
+    if [[ "$facc" == 1 ]]; then acc_have=$(( acc_have + 1 )); else missing+=("Acceptance"); fi
+    if [[ "$fver" == 1 ]]; then ver_have=$(( ver_have + 1 )); else missing+=("Verify"); fi
+    if [[ "$ftouches" == 1 ]]; then touches_have=$(( touches_have + 1 )); else missing+=("Touches"); fi
+    [[ "$fneeds" == 1 ]] && needs_have=$(( needs_have + 1 ))
+    [[ "$fstakes" == 1 ]] && stakes_have=$(( stakes_have + 1 ))
+    [[ "$flane" == 1 ]] && lane_have=$(( lane_have + 1 ))
+    [[ "$fnofeed" == 1 ]] && usenofeed=$(( usenofeed + 1 ))
+    [[ "$frepair" == 1 && "$flineage" != 1 ]] && lineage_list+=("$lbl: $fid repair item without Lineage")
+    if (( ${#missing[@]} > 0 )); then
+      m=""
+      for f in "${missing[@]}"; do
+        [[ -z "$m" ]] && m="$f" || m="$m, $f"
+      done
+      fieldcov_list+=("$lbl: $fid missing: $m")
+    fi
+  done < <(
+    for sf in "${specfiles[@]}"; do
+      awk '
+        /^### [A-Za-z0-9]+ — / {
+          if (id != "") print id "\t" acc "\t" ver "\t" touches "\t" needs "\t" stakes "\t" lane "\t" nofeed "\t" lineage "\t" repair
+          id=$2; acc=0; ver=0; touches=0; needs=0; stakes=0; lane=0; nofeed=0; lineage=0; repair=(id ~ /^S[0-9]+[a-z]$/); next
+        }
+        /^## / { if (id != "") { print id "\t" acc "\t" ver "\t" touches "\t" needs "\t" stakes "\t" lane "\t" nofeed "\t" lineage "\t" repair; id="" }; next }
+        id != "" && /^- / && /Lane:[[:space:]]*use/ && !/feeds:/ { nofeed=1 }
+        id != "" && /^- Lineage:/ { lineage=1 }
+        id != "" && /^- What:/ && tolower($0) ~ /fix|repair/ { repair=1 }
+        id != "" && /^- / && /(^- |· )Stakes:/ { stakes=1 }
+        id != "" && /^- / && /(^- |· )Lane:/ { lane=1 }
+        id != "" && /^- Acceptance:/ { acc=1 }
+        id != "" && /^- Verify:/ { ver=1 }
+        id != "" && /^- Touches:/ { touches=1 }
+        id != "" && /^- Needs:/ { needs=1 }
+        END { if (id != "") print id "\t" acc "\t" ver "\t" touches "\t" needs "\t" stakes "\t" lane "\t" nofeed "\t" lineage "\t" repair }
+      ' "$sf" 2>/dev/null
+    done
+  )
+  # Box lines (check 22): `Box: n days|sessions — started D`; sessions counted only.
+  box_sessions=0
+  while IFS=$'\t' read -r bid bval; do
+    [[ -z "$bid" ]] && continue
+    if [[ "$bval" =~ Box:[[:space:]]*([0-9]+)[[:space:]]+(sessions|days)[[:space:]]*—[[:space:]]*started[[:space:]]+($date_re) ]]; then
+      bn="${BASH_REMATCH[1]}"; bunit="${BASH_REMATCH[2]}"; bstart="${BASH_REMATCH[3]}"
+      if [[ "$bunit" == sessions ]]; then
+        box_sessions=$(( box_sessions + 1 ))
+      else
+        bend="$(date -d "$bstart + $bn days" +%F 2>/dev/null)"
+        if [[ -n "$bend" && "$bend" < "$TODAY" ]] \
+           && ! grep -qiE 'done|✅' <<< "$(grep -iE "^\|[[:space:]]*\**${bid}\**[[:space:]]*\|" "$tracker" 2>/dev/null)"; then
+          box_list+=("$lbl: $bid Box expired ($bn days from $bstart, ended $bend) and item not done")
+        fi
+      fi
+    fi
+  done < <(
+    for sf in "${specfiles[@]}"; do
+      awk '
+        /^### [A-Za-z0-9]+ — / { id=$2; next }
+        /^## / { id=""; next }
+        id != "" && /^- / && /Box:/ { print id "\t" $0 }
+      ' "$sf" 2>/dev/null
+    done
+  )
+  if (( item_total > 0 )); then
+    fl="$lbl — fields: Acc $acc_have/$item_total · Ver $ver_have/$item_total · Needs $needs_have/$item_total · Touches $touches_have/$item_total · Stakes $stakes_have/$item_total · Lane $lane_have/$item_total · Lane-use-no-feeds $usenofeed"
+    (( box_sessions > 0 )) && fl+=" · Box(sessions) $box_sessions"
+    fieldcov_list+=("$fl")
+  fi
+
+  # 14. unjustified gate — `- Gate:` value per "### <ID> — " item (same item parse as check
+  # 13). Records Gate: human ids for check 15.
+  declare -A gate_human=()
+  while IFS=$'\t' read -r gid gval; do
+    [[ -z "$gid" ]] && continue
+    gl="$(trim "${gval,,}")"
+    if [[ "$gl" =~ ^auto([^a-z]|$) ]]; then
+      :
+    elif [[ "$gl" =~ ^human([^a-z]|$) ]]; then
+      gate_human["$gid"]=1
+      if ! grep -qE 'outside (the )?repo|delete|overwrite|install|merge|money|external' <<< "${gl#human}"; then
+        gate_list+=("$lbl: $gid Gate: human reason not in allowed list")
+      fi
+    else
+      gate_list+=("$lbl: $gid Gate: invalid value")
+    fi
+  done < <(
+    for sf in "${specfiles[@]}"; do
+      awk '
+        /^### [A-Za-z0-9]+ — / { id=$2; next }
+        /^## / { id=""; next }
+        id != "" && /^- Gate:/ { line=$0; sub(/^- Gate:[[:space:]]*/, "", line); print id "\t" line }
+      ' "$sf" 2>/dev/null
+    done
+  )
+
+  # 15. Resume Next waits on the human owner without a named Gate: human item (one entry per pack).
+  while IFS= read -r nline; do
+    grep -qiE 'on (the )?(human|owner).s "?go|awaiting (the )?(human|owner|approval)|(human|owner).s go' <<< "$nline" || continue
+    gated=0
+    while IFS= read -r nid; do
+      [[ -n "$nid" && -n "${gate_human[$nid]+x}" ]] && { gated=1; break; }
+    done < <(grep -oE '\b[A-Z]+-?[0-9]+[a-z]?\b' <<< "$nline")
+    if (( ! gated )); then
+      nextwait_list+=("$lbl: Resume Next waits on the human owner but no named Gate: human item")
+      break
+    fi
+  done < <(awk '/^## Resume here/{f=1;next} /^## /{f=0} f && /Next/' "$tracker" 2>/dev/null)
+  unset gate_human
+
+  # 16/17. Outcome + First-result (header lines; bold markers optional)
+  outcome_line="$(grep -m1 -iE '^[[:space:]]*(\*\*)?Outcome:' "$tracker" 2>/dev/null)"
+  fr_line="$(grep -m1 -iE '^[[:space:]]*(\*\*)?First-result:' "$tracker" 2>/dev/null)"
+  [[ -z "$outcome_line" ]] && outcome_list+=("$lbl — no \"Outcome:\" line in TRACKER.md")
+  if [[ -z "$fr_line" ]]; then
+    outcome_list+=("$lbl — no \"First-result:\" line in TRACKER.md")
+  elif [[ "$fr_line" =~ due[[:space:]]+($date_re)[[:space:]]*[—-]+[[:space:]]*open ]]; then
+    [[ "${BASH_REMATCH[1]}" < "$TODAY" ]] && firstres_list+=("$lbl — First-result open and overdue (due ${BASH_REMATCH[1]})")
+  fi
+
+  # 18. Delivered clock: `Last delivered:` date, else `Delivered:` date unless text starts
+  # with `none`, else first decision-log row date. Stale = older than 21 days.
+  dl_date=""
+  resume_txt="$(awk '/^## Resume here/{f=1;next} /^## /{f=0} f' "$tracker" 2>/dev/null)"
+  ld_line="$(grep -iE '(^|[^a-z])Last delivered:' <<< "$resume_txt" | head -1)"
+  dl_line="$(grep -E '(^|[^a-zA-Z])Delivered:' <<< "$resume_txt" | head -1)"
+  if [[ -n "$ld_line" ]]; then
+    dl_date="$(grep -oE "$date_re" <<< "$ld_line" | head -1)"
+  fi
+  if [[ -z "$dl_date" && -n "$dl_line" ]]; then
+    dl_text="$(sed -E 's/.*Delivered:(\*\*)?[[:space:]]*//' <<< "$dl_line")"
+    if [[ ! "${dl_text,,}" =~ ^none ]]; then
+      dl_date="$(grep -oE "\\($date_re\\)" <<< "$dl_line" | tail -1 | tr -d '()')"
+    fi
+  fi
+  if [[ -z "$dl_date" ]]; then
+    dl_date="$(awk '/^## Decision log/{f=1;next} /^## /{f=0} f && /^\|/' "$tracker" 2>/dev/null | grep -oE "$date_re" | head -1)"
+  fi
+  if [[ -z "$dl_date" ]]; then
+    delivered_list+=("$lbl — Resume has no \"Delivered:\" line — continue/descope/park/abandon?")
+  elif [[ "$dl_date" < "$STALE_CUTOFF" ]]; then
+    delivered_list+=("$lbl — last Delivered $dl_date is >21 days old — continue/descope/park/abandon?")
+  fi
+
+  # 19. STRATEGY Trigger: DATE | check | action | open — past due
+  if [[ -f "$dir/STRATEGY.md" ]]; then
+    while IFS= read -r tline; do
+      IFS='|' read -ra tf <<< "$tline"
+      td="$(grep -oE "$date_re" <<< "${tf[0]}" | head -1)"
+      tstate="$(trim "${tf[3]:-}")"
+      if [[ -n "$td" && "$tstate" =~ ^open && "$td" < "$TODAY" ]]; then
+        trigger_list+=("$lbl — trigger past due: $(trim "${tf[1]:-}") (was $td)")
+      fi
+    done < <(grep -E '^[[:space:]]*[-*]?[[:space:]]*Trigger:[[:space:]]*[0-9]{4}-' "$dir/STRATEGY.md" 2>/dev/null)
+  fi
+done
+
+# 21. >3 active packs under one repo's plans/
+for r in "${!repo_active[@]}"; do
+  (( ${repo_active[$r]} > 3 )) && repo_list+=("$(label "$r") — ${repo_active[$r]} active packs (>3)")
+done
+
+drift_total=${#resume_missing_list[@]}
+drift_total=$(( drift_total + ${#blocked_list[@]} + ${#needs_dangling_list[@]} ))
+info_total=$(( ${#resume_long_list[@]} + ${#size_list[@]} + ${#decisionrow_list[@]} \
+             + ${#goal_list[@]} + ${#footer_list[@]} + ${#filename_list[@]} + ${#crosslink_list[@]} \
+             + ${#touches_overlap_list[@]} + ${#openq_list[@]} + ${#fieldcov_list[@]} \
+             + ${#gate_list[@]} + ${#nextwait_list[@]} + ${#outcome_list[@]} + ${#delivered_list[@]} \
+             + ${#lineage_list[@]} + ${#box_list[@]} + ${#parked_list[@]} + ${#repo_list[@]} ))
+drift_total=$(( drift_total + ${#firstres_list[@]} + ${#trigger_list[@]} ))
+
+echo "## Plan packs (plancheck)"
+echo
+echo "${#packs[@]} packs swept."
+echo
+
+echo "### Resume block missing"
+if (( ${#resume_missing_list[@]} == 0 )); then
+  echo "- ✅ every active pack has a \"## Resume here\" block"
+else
+  for l in "${resume_missing_list[@]}"; do echo "- ⛔ $l"; done
+fi
+echo
+
+echo "### Dangling Blocked-by references"
+if (( ${#blocked_list[@]} == 0 )); then
+  echo "- ✅ no dangling Blocked-by references"
+else
+  for l in "${blocked_list[@]}"; do echo "- ⛔ $l"; done
+fi
+echo
+
+echo "### Dangling Needs references"
+if (( ${#needs_dangling_list[@]} == 0 )); then
+  echo "- ✅ no dangling Needs references"
+else
+  for l in "${needs_dangling_list[@]}"; do echo "- ⛔ $l"; done
+fi
+echo
+
+echo "### Resume block length (>15 lines, informational)"
+if (( ${#resume_long_list[@]} == 0 )); then
+  echo "- ✅ no oversized Resume blocks"
+else
+  for l in "${resume_long_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Tracker size (>=50KB, informational)"
+if (( ${#size_list[@]} == 0 )); then
+  echo "- ✅ no oversized trackers"
+else
+  for l in "${size_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Decision-log row length (>250 chars, informational)"
+if (( ${#decisionrow_list[@]} == 0 )); then
+  echo "- ✅ no oversized decision-log rows"
+else
+  for l in "${decisionrow_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Goal line — absent or vague (informational)"
+if (( ${#goal_list[@]} == 0 )); then
+  echo "- ✅ every active pack has a specific, measurable Goal line"
+else
+  for l in "${goal_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Last verified footer (informational)"
+if (( ${#footer_list[@]} == 0 )); then
+  echo "- ✅ every active TRACKER.md has a Last verified footer"
+else
+  for l in "${footer_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Nonconforming filenames (informational)"
+if (( ${#filename_list[@]} == 0 )); then
+  echo "- ✅ no nonconforming filenames"
+else
+  for l in "${filename_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Dead cross-links (informational)"
+if (( ${#crosslink_list[@]} == 0 )); then
+  echo "- ✅ no dead cross-links"
+else
+  for l in "${crosslink_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Touches overlap without Needs edge (informational, single-hop only)"
+if (( ${#touches_overlap_list[@]} == 0 )); then
+  echo "- ✅ no unedged Touches overlaps"
+else
+  for l in "${touches_overlap_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Open questions over soft cap (>5 open Qn, informational)"
+if (( ${#openq_list[@]} == 0 )); then
+  echo "- ✅ no pack over the 5-open-question soft cap"
+else
+  for l in "${openq_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Item field coverage (informational)"
+if (( ${#fieldcov_list[@]} == 0 )); then
+  echo "- ✅ no packs with SPEC items to check"
+else
+  for l in "${fieldcov_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Unjustified gates (Gate: human reason / invalid value, informational)"
+if (( ${#gate_list[@]} == 0 )); then
+  echo "- ✅ no unjustified or invalid Gate: values"
+else
+  for l in "${gate_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Resume Next waits on the owner without a gate (informational)"
+if (( ${#nextwait_list[@]} == 0 )); then
+  echo "- ✅ no Resume Next waiting on the owner without a named Gate: human item"
+else
+  for l in "${nextwait_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+sect() {  # title marker emptymsg items...
+  local title="$1" mark="$2" empty="$3" l; shift 3
+  echo "### $title"
+  if (( $# == 0 )); then echo "- ✅ $empty"; else for l in "$@"; do echo "- $mark $l"; done; fi
+  echo
+}
+sect "Outcome / First-result missing (informational)" "ℹ️" "every active pack has Outcome and First-result" "${outcome_list[@]}"
+sect "First-result overdue" "⛔" "no open First-result past its due date" "${firstres_list[@]}"
+sect "Delivered stale or absent (informational)" "ℹ️" "every active pack has a fresh Delivered line" "${delivered_list[@]}"
+sect "Strategy triggers past due" "⛔" "no open Trigger past its date" "${trigger_list[@]}"
+sect "More than 3 active packs per repo (informational)" "ℹ️" "no repo has >3 active packs" "${repo_list[@]}"
+sect "Expired Box (informational)" "ℹ️" "no expired Box on an undone item" "${box_list[@]}"
+sect "Repair items without Lineage (informational)" "ℹ️" "every repair item carries Lineage" "${lineage_list[@]}"
+sect "Parked without Parked-until (informational)" "ℹ️" "every parked pack names Parked-until" "${parked_list[@]}"
+
+summary="Summary: ${#packs[@]} packs swept"
+if (( drift_total > 0 )); then summary+=" · ${drift_total} ⛔"; else summary+=" · 0 drift"; fi
+if (( info_total > 0 )); then summary+=" · ${info_total} ℹ️"; else summary+=" · 0 info"; fi
+echo "$summary"
+echo "Assumption lines: ${assumption_total} across ${#assumption_pack_seen[@]} packs"
+
+if (( REPORT_ONLY == 0 && drift_total > 0 )); then exit 1; fi
+exit 0

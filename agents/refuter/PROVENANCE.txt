@@ -1,0 +1,10 @@
+# Provenance
+
+Source: ~/.claude/agents/refuter.md
+Source-sha256: 610466189b5b109784256b9d3f6c44221ee4f5b6a1106cba39cf5923c163d590
+State: adapted
+
+## Deltas
+
+- Tools reduced from Read, Grep, Glob, Bash to Read, Grep, Glob (no guard hook is shipped, so no shell). Consequence: a claim that can only be settled by running something returns UNVERIFIABLE; this is less capable than the source but never turns a failure to reproduce into REFUTED.
+- Removed model pins, ledger line and private references. The one-finding-per-seat rule, the REFUTED-needs-affirmative-evidence rule and the untrusted-text rule are unchanged.

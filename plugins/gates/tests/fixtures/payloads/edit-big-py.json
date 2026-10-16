@@ -1,0 +1,10 @@
+{
+ "session_id": "@SID@",
+ "transcript_path": "@TRANSCRIPT@",
+ "cwd": "@CWD@",
+ "tool_name": "Write",
+ "tool_input": {
+  "file_path": "@CWD@/mod.py",
+  "content": "@BIG@"
+ }
+}

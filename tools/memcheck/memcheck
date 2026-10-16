@@ -1,0 +1,473 @@
+#!/usr/bin/env bash
+# memcheck — deterministic integrity linter over curated memory files. Zero-token, no LLM.
+#
+# Memory layout (under the root given by --root):
+#   <root>/<slug>/memory/MEMORY.md          index, one `- [Title](file.md) — hook` line per file
+#   <root>/<slug>/memory/<name>.md          memory file; frontmatter name / description /
+#                                           metadata.type, then a free-text body
+#
+# Checks (aggregated across every <root>/*/memory dir):
+#   1. dangling wikilink   [[x]] with no x.md in the same dir          -> info
+#   2. index mismatch      file not in MEMORY.md, or MEMORY.md link to a missing file -> ⛔
+#   3. stale date          ISO date more than 6 months old in a body   -> info
+#   4. isolated memory     zero outbound AND zero inbound [[links]]    -> info
+#   5. long index line     a `- [Title](file) — hook` line > 120 chars -> info
+# Only index mismatch is drift-class (marked with a literal ⛔); the rest are informational.
+# Editor sync-conflict files (*sync-conflict*) and broken symlinks are not scanned.
+#
+# Report-only: the scan always exits 0. Usage errors exit 2.
+#
+# --fix-index [--apply] [--dir <memory-dir>] [--actor human|hook] [--shorten] [--audit-log <file>]
+#   Deterministic index fixer: for each orphan (file present, no MEMORY.md entry), read
+#   frontmatter name+description and emit `- [Title](file.md) — <description>`. Dry-run by
+#   default; --apply appends (append-only, idempotent). --dir scopes to one memory dir; omitted
+#   means every dir under the root. Missing frontmatter is reported, not fixed. Dangling index
+#   lines are never auto-deleted.
+#   --shorten: also rewrite EXISTING index lines over 120 chars, cutting the hook at 100 chars
+#   on a word boundary but keeping whole any quoted string, path token, negation or ISO date.
+#   Title and file link are never touched; a second --apply is a no-op.
+#   Concurrency: read-check-append on one index is serialized with flock on <index>.lock.
+#   Audit: every --apply appends `[date host] action target actor=...` to the audit log
+#   (default <root>/.memcheck-audit.log; override with --audit-log).
+#   Security: --dir is realpath-validated, it must resolve to <root>/<one path component>/memory
+#   (symlink escapes and nested tricks like .../memory/deep/memory are refused). The trust root
+#   comes ONLY from --root; no environment variable can relocate it or the audit log.
+#   title/description are sanitized (control chars, zero-width/bidi Unicode, `[]()`` stripped,
+#   whitespace collapsed, character-capped) before interpolation into the index line, since that
+#   file is loaded as session context. Filenames containing bracket/paren chars are refused.
+usage() {
+  cat <<'EOF'
+memcheck — deterministic integrity linter over curated memory files.
+Usage: memcheck --root <dir> [--fix-index [--apply] [--dir <memory-dir>] [--actor human|hook]
+                              [--shorten] [--audit-log <file>]]
+  --root <dir>   trust root; memory dirs are <dir>/<slug>/memory (required)
+EOF
+}
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then usage; exit 0; fi
+
+set -uo pipefail
+shopt -s nullglob
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CUTOFF="$(date -d '-6 months' +%F)"
+ROOT=""
+AUDIT_LOG=""
+
+FIX_INDEX=0
+APPLY=0
+ONE_DIR=""
+ACTOR="human"
+SHORTEN=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fix-index) FIX_INDEX=1; shift ;;
+    --apply) APPLY=1; shift ;;
+    --shorten) SHORTEN=1; shift ;;
+    --root)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "memcheck: --root requires a non-empty value" >&2; usage >&2; exit 2
+      fi
+      ROOT="$2"; shift 2 ;;
+    --audit-log)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "memcheck: --audit-log requires a non-empty value" >&2; exit 2
+      fi
+      AUDIT_LOG="$2"; shift 2 ;;
+    --dir)
+      # under `set -uo pipefail` (no -e), `shift 2` with only 1 arg left is a no-op —
+      # the loop never terminates. Require a value present AND non-empty before consuming it;
+      # an empty ONE_DIR would also fall through to the fleet-wide GLOBAL glob below, silently
+      # widening a scoped --apply.
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "usage: memcheck --fix-index [--apply] --dir <memory-dir> — --dir requires a non-empty value" >&2
+        exit 0
+      fi
+      ONE_DIR="$2"; shift 2 ;;
+    --actor)
+      # same shift-2-with-no-value hang risk as --dir above; --actor has a default so just
+      # fall back to it instead of erroring when the value is missing.
+      if [[ $# -lt 2 ]]; then
+        ACTOR="human"; shift
+      else
+        ACTOR="${2:-human}"; shift 2
+      fi
+      ;;
+    *) shift ;;
+  esac
+done
+[[ "$ACTOR" == "hook" || "$ACTOR" == "human" ]] || ACTOR="human"
+
+if [[ -z "$ROOT" ]]; then
+  echo "memcheck: --root <dir> is required" >&2; usage >&2; exit 2
+fi
+ROOT="$(realpath -e "$ROOT" 2>/dev/null)" || { echo "memcheck: --root is not an existing directory" >&2; exit 2; }
+[[ -d "$ROOT" ]] || { echo "memcheck: --root is not a directory" >&2; exit 2; }
+[[ -n "$AUDIT_LOG" ]] || AUDIT_LOG="$ROOT/.memcheck-audit.log"
+
+# memory dirs: <root>/<slug>/memory, each must resolve (realpath) to a real dir still inside the
+# root. A symlinked memory dir pointing elsewhere is refused (reported on stderr), never scanned.
+MEMDIRS=()
+for cand in "$ROOT"/*/memory; do
+  [[ -d "$cand" ]] || continue
+  res="$(realpath -e "$cand" 2>/dev/null)" || continue
+  if [[ "$res" != "$ROOT"/*/memory ]]; then
+    echo "memcheck: skipping $cand — resolves outside the root" >&2; continue
+  fi
+  MEMDIRS+=("$cand")
+done
+
+# refuse_symlinks <path>... — a symlinked lock, index or audit log would make the redirections
+# below truncate or append to whatever the link points at (e.g. a hostile memory dir).
+refuse_symlinks() {
+  local p
+  for p in "$@"; do
+    if [[ -L "$p" ]]; then
+      echo "memcheck: refusing symlinked path: $p" >&2
+      return 1
+    fi
+  done
+}
+
+audit() {  # action target actor
+  refuse_symlinks "$AUDIT_LOG" || exit 3
+  mkdir -p "$(dirname "$AUDIT_LOG")"
+  printf '[%s %s] %s %s actor=%s\n' "$(date +%F)" "$(hostname -s 2>/dev/null || hostname)" "$1" "$2" "$3" >>"$AUDIT_LOG"
+}
+
+# extract a top-level YAML frontmatter field (between the first two `---` lines)
+frontmatter_field() {  # file field
+  awk -v f="$2" '
+    NR==1 && $0=="---" { infm=1; next }
+    infm && $0=="---" { exit }
+    infm && $0 ~ "^"f":" { sub("^"f":[ \t]*",""); gsub(/^"|"$/,""); print; exit }
+  ' "$1"
+}
+
+titlecase() {  # slug ("example-slug" -> "Example Slug")
+  local slug="$1" word out=""
+  IFS='-' read -ra parts <<<"$slug"
+  for word in "${parts[@]}"; do out+="${word^} "; done
+  printf '%s' "${out% }"
+}
+
+# sanitize_field() lives in lib/sanitize.sh (shared untrusted-text stripping).
+source "$SCRIPT_DIR/lib/sanitize.sh"
+
+# realpath-validate a --dir target: must resolve to $ROOT/<exactly one component>/memory
+# (defends against symlinked memory dirs pointing outside the trusted tree AND against nested
+# tricks like <root>/foo/deep/memory — a bash glob `*` matches `/` too, so a naive pattern
+# match would accept those).
+validate_mem_dir() {  # dir
+  local dir="$1" resolved rest slug
+  resolved="$(realpath -e "$dir" 2>/dev/null)" || return 1
+  rest="${resolved#"$ROOT"/}"
+  [[ "$rest" != "$resolved" ]] || return 1     # prefix must actually have matched
+  [[ "$rest" == */memory ]] || return 1        # must end exactly in /memory
+  slug="${rest%/memory}"
+  [[ -n "$slug" && "$slug" != */* ]] || return 1  # exactly one path component before /memory
+}
+
+fix_index_dir() {  # dir
+  local dir="$1" index files=() f path slug name desc title line lock_fd
+  index="$dir/MEMORY.md"
+  [[ -d "$dir" ]] || return 0
+  mapfile -t files < <(find "$dir" -maxdepth 1 -name '*.md' ! -name 'MEMORY.md' ! -name '*sync-conflict*' ! -xtype l -printf '%f\n' | sort)
+  (( ${#files[@]} == 0 )) && return 0
+  if [[ ! -f "$index" ]]; then
+    echo "- ⛔ $dir — no MEMORY.md, cannot fix-index"
+    return 0
+  fi
+
+  # serialize the read-check-append sequence below on this index file: two concurrent
+  # hook-driven runs racing the `grep` check against the `>>` append produced permanent
+  # duplicate index lines (TOCTOU) before this lock existed.
+  refuse_symlinks "$index" "$index.lock" || return 3
+  (( APPLY )) && { refuse_symlinks "$AUDIT_LOG" || return 3; }
+  exec {lock_fd}>>"$index.lock"   # append mode: taking the lock never truncates
+  flock -x "$lock_fd"
+
+  for f in "${files[@]}"; do
+    grep -qF "]($f)" "$index" 2>/dev/null && continue   # already indexed — idempotent skip
+    if [[ "$f" == *']'* || "$f" == *'['* || "$f" == *'('* || "$f" == *')'* ]]; then
+      echo "- ⚠️ $dir/$f — filename contains bracket/paren chars, refusing to index"
+      continue
+    fi
+    path="$dir/$f"
+    name="$(frontmatter_field "$path" name)"
+    desc="$(frontmatter_field "$path" description)"
+    if [[ -z "$name" || -z "$desc" ]]; then
+      echo "- ⚠️ $dir/$f — no frontmatter name/description, not auto-fixed"
+      continue
+    fi
+    title="$(sanitize_field "$(titlecase "$name")" 80 title)"
+    desc="$(sanitize_field "$desc" 200 description)"
+    line="- [$title]($f) — $desc"
+    if (( APPLY )); then
+      printf '%s\n' "$line" >>"$index"
+      audit "fix-index" "$dir/$f" "$ACTOR"
+      echo "✅ applied: $index :: $line"
+    else
+      echo "$index :: $line"
+    fi
+  done
+
+  flock -u "$lock_fd"
+  exec {lock_fd}>&-
+}
+
+# shorten_hook_text() — derive a ≤100-char, word-boundary-safe rewrite of an existing index
+# line's hook text. Priority for what must survive intact, in order: a quoted error
+# string, a path token (~/, /, bin/, .sh), a negation (NOT/never/not), an ISO date — cutting
+# extends past the nominal 100 chars only far enough to keep the LAST such token whole, then
+# drops everything after it (the trailing clause). No spans found → plain word-boundary cut
+# at 100. Text passed via env var, not argv/heredoc-stdin, so quotes/backslashes in the hook
+# never need shell-escaping and the heredoc body stays literal ('PYEOF').
+shorten_hook_text() {  # $1 = hook text; prints shortened hook on stdout
+  MEMCHECK_HOOK_TEXT="$1" python3 -I - <<'PYEOF'
+import os, re
+
+MAXLEN = 100
+hook = os.environ.get("MEMCHECK_HOOK_TEXT", "")
+
+if len(hook) <= MAXLEN:
+    print(hook)
+    raise SystemExit(0)
+
+spans = []
+for pat in (r'"[^"]*"', r"'[^']*'",           # quoted error strings
+            r'~/\S+', r'\bbin/\S+', r'\S*\.sh\b', r'(?<!\S)/\S+',  # path tokens
+            r'\b(?:NOT|never|not)\b',          # negation
+            r'\b20\d{2}-\d{2}-\d{2}\b'):       # ISO date
+    spans += [m.span() for m in re.finditer(pat, hook)]
+
+def trim_trailing_punct(span):
+    s, e = span
+    while e > s and hook[e - 1] in ',.;:)':
+        e -= 1
+    return s, e
+
+spans = [trim_trailing_punct(sp) for sp in spans]
+
+# default cut: the rightmost word boundary AT OR BEFORE MAXLEN (round down — a plain "cut at
+# 100 chars on a word boundary" never overshoots when no distinctive token is at stake).
+ws_before = [i for i, c in enumerate(hook[:MAXLEN + 1]) if c.isspace()]
+cut_at = max(ws_before) if ws_before else MAXLEN
+
+# only extend PAST the default cut if a preserved span would otherwise be cut short —
+# then extend just far enough to clear that span, to the next word boundary after it.
+if spans:
+    max_end = max(e for (_, e) in spans)
+    if max_end > cut_at:
+        m = re.search(r'\s', hook[max_end:])
+        cut_at = max_end + m.start() if m else len(hook)
+
+print(hook[:cut_at].rstrip(' ,;:.—-'))
+PYEOF
+}
+
+# shorten_index_dir() — rewrite this dir's MEMORY.md in place, cutting the hook of any index
+# line whose TOTAL line length (title + link + hook) exceeds 120 chars. Title/link untouched.
+# Same flock as fix_index_dir (caller already holds no lock across calls — each function
+# takes and releases its own), so a concurrent hook-driven --apply can't race this rewrite.
+shorten_index_dir() {  # dir
+  local dir="$1" index tmpfile line title file hook linelen newhook newline changed=0 lock_fd
+  index="$dir/MEMORY.md"
+  refuse_symlinks "$index" "$index.lock" || return 3
+  (( APPLY )) && { refuse_symlinks "$AUDIT_LOG" || return 3; }
+  [[ -f "$index" ]] || return 0
+
+  exec {lock_fd}>>"$index.lock"   # append mode: taking the lock never truncates
+  flock -x "$lock_fd"
+
+  local idx_pat='^- \[([^]]+)\]\(([^)]+)\) — (.*)$'
+  tmpfile="$(mktemp)"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ $idx_pat ]]; then
+      title="${BASH_REMATCH[1]}"; file="${BASH_REMATCH[2]}"; hook="${BASH_REMATCH[3]}"
+      linelen=${#line}
+      if (( linelen > 120 )); then
+        newhook="$(shorten_hook_text "$hook")"
+        newline="- [$title]($file) — $newhook"
+        # a hook that already converges to the same text under shorten_hook_text (e.g. its
+        # hook portion is already ≤100 chars, even though title+link keep the total line over
+        # 120) is NOT a change — skip it silently so a second --apply is a true no-op instead
+        # of re-announcing the same rewrite forever.
+        if [[ "$newline" != "$line" ]]; then
+          if (( APPLY )); then
+            printf '%s\n' "$newline" >>"$tmpfile"
+            changed=1
+            echo "✅ shortened: $index :: $newline"
+          else
+            echo "$index :: $newline"
+          fi
+          continue
+        fi
+      fi
+    fi
+    printf '%s\n' "$line" >>"$tmpfile"
+  done <"$index"
+
+  if (( APPLY && changed )); then
+    mv "$tmpfile" "$index"
+    audit "shorten-index" "$index" "$ACTOR"
+  else
+    rm -f "$tmpfile"
+  fi
+
+  flock -u "$lock_fd"
+  exec {lock_fd}>&-
+}
+
+fix_index_main() {
+  local rc=0
+  if [[ -n "$ONE_DIR" ]]; then
+    if validate_mem_dir "$ONE_DIR"; then
+      fix_index_dir "$ONE_DIR" || rc=$?
+      (( SHORTEN )) && { shorten_index_dir "$ONE_DIR" || rc=$?; }
+    else
+      echo "- ⛔ $ONE_DIR — refused: does not resolve to <root>/<slug>/memory"
+    fi
+  else
+    for dir in "${MEMDIRS[@]}"; do
+      fix_index_dir "$dir" || rc=$?
+      (( SHORTEN )) && { shorten_index_dir "$dir" || rc=$?; }
+    done
+  fi
+  return "$rc"
+}
+
+if (( FIX_INDEX )); then
+  fix_index_main
+  exit $?
+fi
+
+total_files=0
+dangling_list=()
+index_list=()
+noindex_list=()
+stale_list=()
+isolated_list=()
+longidx_list=()
+
+for dir in "${MEMDIRS[@]}"; do
+  [[ -d "$dir" ]] || continue
+  mapfile -t files < <(find "$dir" -maxdepth 1 -name '*.md' ! -name 'MEMORY.md' ! -name '*sync-conflict*' ! -xtype l -printf '%f\n' | sort)
+  (( ${#files[@]} == 0 )) && continue
+
+  dirlabel="$(basename "$(dirname "$dir")")"
+
+  declare -A exists=()
+  for f in "${files[@]}"; do exists["${f%.md}"]=1; done
+
+  declare -A outbound_count=()
+  declare -A inbound_count=()
+
+  for f in "${files[@]}"; do
+    total_files=$((total_files + 1))
+    slug="${f%.md}"
+    path="$dir/$f"
+
+    # 1. wikilinks — dangling + outbound/inbound tallies for check 5
+    mapfile -t links < <(grep -oE '\[\[[^]]+\]\]' "$path" 2>/dev/null | sed -E 's/^\[\[|\]\]$//g' | sort -u)
+    outbound_count["$slug"]=${#links[@]}
+    for l in "${links[@]}"; do
+      [[ -n "$l" ]] || continue
+      inbound_count["$l"]=$(( ${inbound_count["$l"]:-0} + 1 ))
+      [[ -z "${exists[$l]:-}" ]] && dangling_list+=("$dirlabel/$f: [[$l]]")
+    done
+
+    # 3. stale dates
+    mapfile -t dates < <(grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$path" 2>/dev/null | sort -u)
+    for d in "${dates[@]}"; do
+      [[ "$d" < "$CUTOFF" ]] && stale_list+=("$dirlabel/$f: $d")
+    done
+  done
+
+  # 2. index mismatch
+  index="$dir/MEMORY.md"
+  if [[ -f "$index" ]]; then
+    for f in "${files[@]}"; do
+      grep -qF "]($f)" "$index" 2>/dev/null || index_list+=("$dirlabel/$f — not referenced in MEMORY.md")
+    done
+    mapfile -t linked < <(grep -oE '\]\([^)]*\.md\)' "$index" 2>/dev/null | sed -E 's/^\]\(|\)$//g' | sort -u)
+    for l in "${linked[@]}"; do
+      [[ -f "$dir/$l" ]] || index_list+=("$dirlabel/MEMORY.md → missing target: $l")
+    done
+
+    # 5. long index lines — the retrieval surface itself; frontmatter description: is never
+    # injected, so length here (not in the .md body) is what matters. --fix-index --shorten
+    # trims these.
+    idxlineno=0
+    while IFS= read -r idxline || [[ -n "$idxline" ]]; do
+      idxlineno=$((idxlineno + 1))
+      [[ "$idxline" == '- ['*']('*')'* ]] || continue
+      (( ${#idxline} > 120 )) && longidx_list+=("$dirlabel/MEMORY.md:${idxlineno} (${#idxline} chars)")
+    done <"$index"
+  else
+    noindex_list+=("$dirlabel — no MEMORY.md index")
+  fi
+
+  # 4. isolated memories
+  for f in "${files[@]}"; do
+    slug="${f%.md}"
+    out="${outbound_count[$slug]:-0}"
+    inn="${inbound_count[$slug]:-0}"
+    (( out == 0 && inn == 0 )) && isolated_list+=("$dirlabel/$f")
+  done
+
+  unset exists outbound_count inbound_count
+done
+
+drift_total=${#index_list[@]}
+info_total=$(( ${#dangling_list[@]} + ${#stale_list[@]} + ${#isolated_list[@]} + ${#noindex_list[@]} + ${#longidx_list[@]} ))
+
+echo "## Memory integrity (memcheck)"
+echo
+
+echo "### Dangling wikilinks (allowed forward-reference convention)"
+if (( ${#dangling_list[@]} == 0 )); then
+  echo "- ✅ no dangling wikilinks"
+else
+  for l in "${dangling_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Index mismatches (MEMORY.md)"
+if (( ${#index_list[@]} == 0 && ${#noindex_list[@]} == 0 )); then
+  echo "- ✅ all files indexed, all index links resolve"
+else
+  for l in "${noindex_list[@]}"; do echo "- ℹ️ $l"; done
+  for l in "${index_list[@]}"; do echo "- ⛔ $l"; done
+fi
+echo
+
+echo "### Stale dates (>6 months old, informational)"
+if (( ${#stale_list[@]} == 0 )); then
+  echo "- ✅ no dates older than $CUTOFF"
+else
+  for l in "${stale_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Isolated memories (no inbound or outbound wikilinks)"
+if (( ${#isolated_list[@]} == 0 )); then
+  echo "- ✅ no isolated memories"
+else
+  for l in "${isolated_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Long index lines (>120 chars, informational — fix with --fix-index --shorten)"
+if (( ${#longidx_list[@]} == 0 )); then
+  echo "- ✅ no index lines over 120 chars"
+else
+  for l in "${longidx_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+summary="Summary: ${total_files} files scanned"
+if (( drift_total > 0 )); then summary+=" · ${drift_total} ⛔"; else summary+=" · 0 drift"; fi
+if (( info_total > 0 )); then summary+=" · ${info_total} ℹ️"; else summary+=" · 0 info"; fi
+echo "$summary"
+
+exit 0

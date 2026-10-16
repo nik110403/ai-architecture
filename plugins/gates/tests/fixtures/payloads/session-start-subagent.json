@@ -1,0 +1,7 @@
+{
+ "session_id": "@SID@",
+ "cwd": "@CWD@",
+ "hook_event_name": "SessionStart",
+ "source": "startup",
+ "agent_id": "a1"
+}

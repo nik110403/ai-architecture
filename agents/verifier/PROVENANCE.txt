@@ -1,0 +1,11 @@
+# Provenance
+
+Source: ~/.claude/agents/verifier.md
+Source-sha256: ff420ba63fd019e31554d8f0ac511028044824d93f14310045e30840dc08483b
+State: adapted
+
+## Deltas
+
+- Bash is kept (running the verify loop is the role). The sandboxed-execution wrapper and the read-only guard hook the source relied on are not included; the Execution safety section now says the read-only rule is a rule, not an enforced sandbox. This is a weaker guarantee than the source and is listed as an unavoidable delta.
+- Removed the UI detector step and the machine-parsed ledger line; the final line is now `VERDICT: PASS` or `VERDICT: FAIL`.
+- Self-check of the implementer's report, counts re-run, Deviation-first reading, Touches fence, and the 'no Write tool' rule are unchanged.

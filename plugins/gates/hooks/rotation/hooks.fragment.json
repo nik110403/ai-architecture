@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {"type": "command", "command": "python3 /absolute/path/to/plugins/gates/hooks/rotation/model-rotate.py", "timeout": 10}
+        ]
+      }
+    ]
+  }
+}

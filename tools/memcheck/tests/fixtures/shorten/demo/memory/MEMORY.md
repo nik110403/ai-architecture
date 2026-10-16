@@ -1,0 +1,6 @@
+- [Short Entry](short-entry.md) — a short hook under budget, well inside limits.
+- [Module Cache Fix](module-cache-fix.md) — build tool ships no vendored modules; hook dies "Cannot find module 'left-pad/v3'" until the module is linked in manually, re-apply after every tool update
+- [Remote Sync Notes](remote-sync-notes.md) — data synced between two machines via ~/.config/example-tool/sync-hook.sh which calls the identical shorten derivation so freshly written lines already land short
+- [Sync Tool Notes](sync-tool-notes.md) — wraps bin/example-sync for laptop use, invoked from cron, keeps state under a dotfile that the file syncer always leaves alone since race conditions corrupt sqlite
+- [Routing Policy](routing-policy.md) — Alpha never codes, Beta gated, Lambda does the actual writing, Delta bounded reads, NOT enforced for ad-hoc generic dispatches without a model pin
+- [Status Display](status-display.md) — statusline = example-line since 2026-09-07, fed by usage-overlay.sh caching the usage endpoint, high-water store retired after three pins landed

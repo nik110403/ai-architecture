@@ -73,7 +73,7 @@ ROOT_DIRS = {
 }
 HOME_MARK = "/" + "home" + "/"  # built at runtime so the privacy scan stays clean
 STATES = {"verbatim", "adapted", "re-authored"}
-VERSION = "0.4.0-preview"
+VERSION = "0.4.1-preview"
 
 
 def fail(message):

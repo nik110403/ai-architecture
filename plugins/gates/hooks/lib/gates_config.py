@@ -19,8 +19,10 @@ defaults for everything and records the problem under the "_config_error" key; e
 reports it (the destructive guard denies each Bash call until the file is fixed). A missing
 override file is normal and means "defaults".
 
-The override path must name a regular file (checked with stat, following symlinks): a FIFO,
-device or /dev/stdin is refused as an invalid config, so it cannot swallow the hook payload.
+The override path must name a regular file (checked with stat, following symlinks): a FIFO or
+device is refused as an invalid config. A path that is, or whose final component symlinks to, /dev/std*, /dev/fd/*,
+/proc/<pid>/fd/* or /proc/self/* is refused (checked on the raw path and along the final component's symlink chain, not
+only after realpath), so it cannot swallow the hook payload.
 Hooks read their stdin payload FIRST (init()), and only then load the config.
 
 An unknown top-level key (not starting with "_") is an invalid config too: a misspelled key
@@ -102,11 +104,28 @@ def user_config_path():
     return env
 
 
+_STREAM_RE = re.compile(r"/dev/std(?:in|out|err)\Z|/(?:proc/[^/]+(?:/task/[^/]+)?|dev)/fd(?:/|\Z)|/proc/self(?:/|\Z)|/proc/thread-self(?:/|\Z)")
+
+
+def _is_stream_path(path):
+    """True if the raw path, any hop of the final component's symlink chain, or the final realpath names a standard stream
+    or fd entry (/dev/std*, /dev/fd/*, /proc/<pid>/fd/*, /proc/self/*). realpath alone is not enough:
+    /dev/stdin resolves to whatever file the fd currently points at."""
+    cur, seen = os.path.abspath(path), 0
+    while True:
+        if _STREAM_RE.match(cur) or _STREAM_RE.match(os.path.normpath(cur)):
+            return True
+        if not os.path.islink(cur) or seen > 40:
+            break
+        seen += 1
+        cur = os.path.abspath(os.path.join(os.path.dirname(cur), os.readlink(cur)))
+    return bool(_STREAM_RE.match(os.path.realpath(path)))
+
+
 def _read(path, required):
     """Returns (dict, error). A missing optional file is ({}, None)."""
-    real = os.path.realpath(path)
-    if real.startswith("/dev/std") or re.match(r"/(?:proc/[^/]+(?:/task/[^/]+)?|dev)/fd(?:/|$)", real):
-        return {}, f"config {path} invalid: refers to a standard stream or file descriptor \u2014 fix it"
+    if _is_stream_path(path):
+        return {}, f"config {path} refused: refers to a standard stream or file descriptor \u2014 fix it"
     try:
         st = os.stat(path)
     except FileNotFoundError:

@@ -1,9 +1,9 @@
 {
   "name": "ai-architecture",
-  "metadata": {"description": "A generic extract of an agent workflow setup: plan packs, maker/checker review roles, resumable handoffs and offline tools, with an opt-in guard-hook plugin and an OpenCode bridge.", "version": "0.4.0-preview"},
+  "metadata": {"description": "A generic extract of an agent workflow setup: plan packs, maker/checker review roles, resumable handoffs and offline tools, with an opt-in guard-hook plugin and an OpenCode bridge.", "version": "0.4.1-preview"},
   "owner": {"name": "Nik", "url": "https://github.com/nik110403"},
   "plugins": [
-    {"name": "ai-architecture", "version": "0.4.0-preview", "source": "./"},
-    {"name": "ai-architecture-gates", "version": "0.4.0-preview", "source": "./plugins/gates"}
+    {"name": "ai-architecture", "version": "0.4.1-preview", "source": "./"},
+    {"name": "ai-architecture-gates", "version": "0.4.1-preview", "source": "./plugins/gates"}
   ]
 }

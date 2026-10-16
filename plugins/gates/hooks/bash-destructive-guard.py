@@ -66,6 +66,8 @@ def heredoc_is_sink(prefix, suffix, nxt):
     if MSG_PREFIX_RE.match(prefix) and not suffix.strip(): return True
     return False
 
+class HeredocBackslash(Exception): pass
+
 def strip_heredocs(s):
     # Linear: one pass indexes every line that could terminate a heredoc (by stripped text), then
     # each opener bisects for its first terminator at/after the body start -- no per-opener rescan.
@@ -84,6 +86,11 @@ def strip_heredocs(s):
         j = idx[p]
         nxt = lines[j + 1] if j + 1 < len(lines) else ""
         if heredoc_is_sink(ln[:hd[0]], ln[hd[1]:], nxt):
+            # Unquoted delimiter: bash joins a body line ending in an odd number of backslashes with the
+            # next one before comparing it to the delimiter, so the real body end differs from ours.
+            if not re.search(r"[\"\x27\\]", ln[hd[0] + 2:hd[1]]):
+                for b in lines[i:j]:
+                    if (len(b) - len(b.rstrip("\\"))) % 2: raise HeredocBackslash()
             out.append(lines[j])
             i = j + 1
     return "\n".join(out)
@@ -709,7 +716,12 @@ def run():
         if _ln.endswith("\\") and "<<" in _ln and find_heredoc(_ln):
             emit("deny", "heredoc opener line ends in a backslash (line continuation); the guard cannot parse it -- put the heredoc on one line", cmd)
             return
-    stripped = re.sub(r"\n\s*", "\n", strip_heredocs(cmd))  # collapse newline runs: CMDPOS regexes are quadratic on them
+    try:
+        _sh = strip_heredocs(cmd)
+    except HeredocBackslash:
+        emit("deny", "heredoc body line ends in a backslash (line continuation before the delimiter); the guard cannot parse it -- quote the delimiter or avoid the trailing backslash", cmd)
+        return
+    stripped = re.sub(r"\n\s*", "\n", _sh)  # collapse newline runs: CMDPOS regexes are quadratic on them
     # Line continuations (\<newline>) join into the same command; any OTHER newline is a real
     # command separator (same as ";") and is kept so CMDPOS below still recognizes it.
     joined = re.sub(r"\\\n", " ", deescape(pre_normalize(stripped)))

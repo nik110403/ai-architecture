@@ -181,8 +181,14 @@ for hook, kind in ALL:
 # N2: AIARCH_CONFIG=/dev/stdin must fail closed (the wrapper's stdin is a payload temp file, so it parses as a config with unknown keys).
 j, rc = run_hook("bash-destructive-guard.sh", json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": proj}),
                  {"AIARCH_CONFIG": "/dev/stdin"})
-check("N2 AIARCH_CONFIG=/dev/stdin: destructive guard denies as invalid config",
-      (verdict(j), "invalid" in json.dumps(j)), ("deny", True))
+check("N2 AIARCH_CONFIG=/dev/stdin: destructive guard denies as refused (raw-path check)",
+      (verdict(j), "refused" in json.dumps(j)), ("deny", True))
+lnk = os.path.join(tempfile.mkdtemp(), "cfg.lnk")
+os.symlink("/dev/stdin", lnk)
+j, rc = run_hook("bash-destructive-guard.sh", json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": proj}),
+                 {"AIARCH_CONFIG": lnk})
+check("N2 AIARCH_CONFIG=symlink->/dev/stdin: denied as refused (symlink-hop check)",
+      (verdict(j), "refused" in json.dumps(j)), ("deny", True))
 fifo = os.path.join(tempfile.mkdtemp(), "cfg.fifo")
 os.mkfifo(fifo)
 j, rc = run_hook("review-stop-gate.py", json.dumps({"stop_hook_active": False}), {"AIARCH_CONFIG": fifo})

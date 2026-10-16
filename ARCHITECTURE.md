@@ -52,8 +52,8 @@ flowchart TB
   Exec --> Rev
   Rev --> TR
   TR --> RS
-  Guard -. enforce .- Exec
-  Guard -. enforce .- Rev
+  Guard -. checks .- Exec
+  Guard -. checks .- Rev
   Harness --- Exec
   Loops -. report on .- Plan
   Loops -. report on .- Cont
@@ -69,7 +69,7 @@ builder and critic pair.
 Routing is a table, not a mood. A request is classified by task kind and by stakes, and the table says which
 role handles it and what review it owes. A decided, non-UI change goes to the implementer. High-stakes
 changes (cryptography, migrations, concurrency, authorization, money, security boundaries) add a
-security review and a tribunal. Hooks enforce the table where a prompt alone would be forgotten (see
+security review and a tribunal. Hooks check the table where a prompt alone would be forgotten (see
 [section 5](#5-guards)).
 
 In this repo: [`rules/dispatch-router.md`](rules/dispatch-router.md),

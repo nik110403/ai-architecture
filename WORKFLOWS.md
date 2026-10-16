@@ -163,11 +163,11 @@ offline tools in a fresh temporary project and demonstrates only a fixed, litera
 Next. Its inputs are authored fixtures, not a recipient's real project or an
 AI builder/checker transcript.
 
-## Where the rules are enforced
+## Where the rules are checked
 
-Most of the steps above are instructions an agent follows. Three pieces make some of them real, and only if
-you install them: the [gates plugin](plugins/gates/README.md) (hooks that block destructive commands and
-unreviewed or unrecorded stops), the [OpenCode bridge](opencode/README.md) (the same hooks inside OpenCode)
+Most of the steps above are instructions an agent follows. Three pieces check some of them, and only if
+you install them: the [gates plugin](plugins/gates/README.md) (best-effort hooks that catch common destructive commands and
+unreviewed or unrecorded stops; a tripwire, not a security boundary), the [OpenCode bridge](opencode/README.md) (the same hooks inside OpenCode)
 and opt-in [model rotation](opencode/rotation/README.md). [INSTALL.md](INSTALL.md) says how to turn each on and
 off. Everything else here stays described.
 

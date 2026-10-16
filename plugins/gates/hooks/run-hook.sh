@@ -17,7 +17,7 @@ fail() {
     pretool) printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"'"$m"'"}}' ;;
     stop)
       # silent only when the payload JSON says stop_hook_active is exactly true (so the turn can end)
-      src="$tmp"; [ -n "$fd3" ] && src=/dev/fd/3   # /dev/fd/3 reopens the unlinked copy from offset 0
+      src="$tmp"; [ -n "$fd3" ] && src=/dev/fd/5   # fd 5: own read fd at offset 0, never read before
       if [ -n "$src" ] && timeout -k 0.2 1 python3 -I -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("stop_hook_active") is True else 1)' "$src" >/dev/null 2>&1; then
         printf '{}\n'
       else
@@ -32,11 +32,13 @@ command -v timeout >/dev/null 2>&1 || fail "needs coreutils timeout (not found)"
 command -v cat >/dev/null 2>&1 || fail "needs cat (not found)"
 command -v mktemp >/dev/null 2>&1 || fail "needs mktemp (not found)"
 tmp="$(mktemp)" || { tmp=""; fail "mktemp failed"; }
-timeout -k 1 2 cat > "$tmp" || fail "could not read stdin in time"
-# open fd 3 on the payload file and unlink it at once: nothing can swap it, and a SIGKILL leaves no leftover
-exec 3< "$tmp" || fail "could not reopen stdin copy"
+# open fd 3 read-write on the payload file and unlink it BEFORE any data is written: there is no window in
+# which the path can be swapped, and a SIGKILL leaves no leftover. The payload is then written through fd 3.
+exec 3>"$tmp" 4<"$tmp" 5<"$tmp" || fail "could not open stdin copy"
 rm -f -- "$tmp"; tmp=""; fd3=1
-out="$(timeout -k 1 3 python3 -I "$HERE/$script" <&3)"; rc=$?
+timeout -k 1 2 cat >&3 || fail "could not read stdin in time"
+# separate read fds (4: guard, 5: stop probe) start at offset 0 on any OS, no reopen needed
+out="$(timeout -k 1 3 python3 -I "$HERE/$script" <&4)"; rc=$?
 [ "$rc" -eq 0 ] || fail "failed or timed out (rc=$rc)"
 case "$out" in ""|"{"*) ;; *) fail "produced no valid decision" ;; esac
 [ -n "$out" ] && printf '%s\n' "$out"

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1-preview — 2026-10-16
+
+- Social preview image regenerated with the current tagline (plan packs, maker/checker review, resumable handoffs, offline tools, opt-in guard plugin, OpenCode bridge); the README banners were unchanged.
+- Gates plugin, destructive-command guard: an unquoted-delimiter heredoc whose body has a line ending in an odd number of backslashes is now denied, because bash joins that line with the next one before looking for the delimiter and the guard cannot follow that.
+- Gates plugin, configuration: `AIARCH_CONFIG` is refused when the raw path, any hop of its final component's symlink chain, or the resolved path is `/dev/std*`, `/dev/fd/*`, `/proc/<pid>/fd/*` or `/proc/self/*` (previously only the resolved path was checked, so `/dev/stdin` was not caught). The docstring now matches.
+- Gates plugin, hook wrapper script: the payload copy is opened read-write and unlinked before any data is written, then read back through `/dev/fd/3`, which narrows (does not fully close) the window in which another process of the same user could swap the temp file.
+- README and ARCHITECTURE wording now says guards catch common mistakes and "check" rather than "enforce", consistent with the best-effort tripwire framing.
+- Version bumped to `0.4.1-preview` in the manifests, marketplace, citation file and install guide; the gates test counts in COVERAGE are updated (156 destructive-guard cases, 81 configuration-scope tests).
+
 ## 0.4.0-preview — 2026-10-16
 
 - README and ARCHITECTURE now tour the whole system: plan packs, parallel builds, maker/checker review and tribunal, guard hooks, handoffs, two harnesses, maintenance loops.

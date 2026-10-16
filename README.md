@@ -4,7 +4,7 @@
 
 [Install](INSTALL.md) · [Catalog](CATALOG.md) · [Architecture](ARCHITECTURE.md) · [How it works](#how-the-system-works) · [Site](https://nikkhosravipour.com)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.4.0--preview-57534e?style=flat)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.4.1--preview-57534e?style=flat)](CHANGELOG.md)
 
 I run most of my software and research work through coding agents. Left alone, they drift: the scope widens,
 the agent grades its own homework, a destructive command slips through, and everything it knew dies when the
@@ -17,8 +17,8 @@ flowchart LR
   B --> C["Check<br/>fresh verifier · tribunal<br/>security review"]
   C --> H["Hand off<br/>tracker Resume + Next"]
   H --> P
-  G["Guards (hooks)<br/>destructive commands · model rules<br/>review-before-stop · tracker check"] -. enforce .- B
-  G -. enforce .- C
+  G["Guards (hooks)<br/>destructive commands · model rules<br/>review-before-stop · tracker check"] -. checks .- B
+  G -. checks .- C
 ```
 
 ## How the system works
@@ -42,7 +42,7 @@ changes also get a `security-reviewer` and a **tribunal**: three or more judges 
 sealed, then argue in a shared transcript until they stop finding things. A `refuter` tries to disprove each
 finding before anyone acts on it.
 
-**5. Guards make the rules real.** An opt-in hook plugin is a best-effort tripwire against accidental destructive shell commands (not a security boundary; see its Known limitations), stops a session from
+**5. Guards catch common mistakes.** An opt-in hook plugin is a best-effort tripwire against accidental destructive shell commands (not a security boundary; see its Known limitations), stops a session from
 ending while a required review is missing, and nudges once when a session ends with a tracker that has no current Resume
 block.
 

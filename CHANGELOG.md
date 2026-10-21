@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2-preview — 2026-10-21
+
+- `gate-check`: corrected return-code and expectation handling and tightened path validation. `tribunal-scribe`: optional external retained-head chain checking. `plancheck`: dependency-graph validation and parked-item semantics.
+- Reviewer defaults and tool contracts clarified; provenance records cleaned up. Model rotation remains permission-neutral, and destructive-command checks preserve ASK decisions.
+- OpenCode bridge: edit/Patch handling, reviewer lifecycle and Git-hook checks. Edit budgets use atomic updates; fixtures cover crashes and missing Bun.
+- `memcheck` dry-run fixes, font-license corrections and the gates plugin's MIT license file.
+- `scripts/privacy_scan.py` now ships only four generic prefix checks (one Linux home-path prefix, one private-address prefix, session and change identifiers); operator-specific term lists are no longer part of the public tree. It is a narrow tripwire, not a full personal-data scanner.
+- Preview limits remain: best-effort guards, no shipped isolation or native permission enforcement, no live harness verification or cross-OS claim. Historical test observations in COVERAGE are not new release evidence.
+
 ## 0.4.1-preview — 2026-10-16
 
 - Social preview image regenerated with the current tagline (plan packs, maker/checker review, resumable handoffs, offline tools, opt-in guard plugin, OpenCode bridge); the README banners were unchanged.

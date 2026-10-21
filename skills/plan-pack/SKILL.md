@@ -9,6 +9,8 @@ Use when work needs a plan: "plan this", "spec it out", a roadmap, a strategy/sp
 
 Status of this port: the file formats, the tier ladder and the linter (`tools/plancheck/plancheck`) are runnable. Automatic hand-off into execution works only where your harness can run the companion `exec-pack` skill; that behaviour is UNVERIFIED outside the author's own setup. Unattended runners, morning reports and ledgers that the original setup used around this skill are not included.
 
+**Selective adoption dependencies.** Copying `skills/plan-pack/` alone is insufficient. Preserve collection-root-relative paths (or explicitly adapt every reference): `templates/planning/TRACKER.md` for T1; add `templates/planning/SPEC.md` for T2 and `templates/planning/STRATEGY.md` for T3; add `templates/planning/QUESTIONS.md` and `templates/planning/GATES.md` when those contracts are used. Keep `tools/plancheck/plancheck` and `rules/stakes-dial.md` available. T2+ execution also needs the companion `skills/exec-pack/` and configured implementer/verifier roles; T3 review needs `skills/tribunal/` and its declared tools/roles. A GATES file requires `tools/gate-check/gate-check`. These are manual dependencies, not a bundle installer or an automatic role import. Resolve them before promising an execution handoff; report unavailable harness capabilities explicitly.
+
 # plan-pack - right-sized planning docs
 
 **Outcome first.** A pack exists to reach a result the owner uses, not to finish a platform. Packs that only describe foundations stall at first contact with the world. Every pack therefore names its `Outcome:` and a dated `First-result:`, opens with a walking skeleton, and keeps a `use` lane moving while `build` work continues.
@@ -53,9 +55,9 @@ Templates live in `templates/planning/` - copy, do not invent structure. Mechani
 
 ## Handoff - plans run themselves
 
-**Walking skeleton.** The first wave written is the thinnest end-to-end slice - input to a result the owner reads or uses, crude is fine - with at least one `Lane: use` item ready at write time (if none can be, say why in one line in the SPEC). Hardening `Needs:` the skeleton, never the reverse. STRATEGY dated checks are `Trigger:` lines (machine-read by plancheck; a past-due `open` trigger is blocking), including at least one early continue/kill check before heavy build-out. Plan revisions get a tribunal only when the pack is `Stakes: HIGH` and money or irreversibility is involved (see `rules/stakes-dial.md`, rule 7).
+**Walking skeleton.** At T2+, the first wave written is the thinnest end-to-end slice - input to a result the owner reads or uses, crude is fine - with at least one `Lane: use` item ready at write time (if none can be, say why in one line in the SPEC). At T1, the tracker's First-result and Next action serve this purpose without SPEC fields. Hardening `Needs:` the skeleton, never the reverse. STRATEGY dated checks are `Trigger:` lines (machine-read by plancheck; a past-due `open` trigger is blocking), including at least one early continue/kill check before heavy build-out. Plan revisions get a tribunal only when the pack is `Stakes: HIGH` and money or irreversibility is involved (see `rules/stakes-dial.md`, rule 7).
 
-Writing the pack is the approval; ending at "shall I execute?" is a defect. Last step of every pack write (T1 and up): set each SPEC item's `Gate:` (absent = `auto`; `human` only for the closed reason list in the SPEC template), overwrite Resume `Next:` with the first ready `Gate: auto` item (ID plus verb), then **invoke the exec-pack skill in the same turn** for that ready wave. T0 means just do the todos. Stop only when the ready set is empty because every remaining item is `Gate: human` or `Blocked-by: Qn` - and say which. A merge is never a stop (exec-pack merges behind a reviewer).
+Writing the pack is the approval; ending at "shall I execute?" is a defect. **T1 is tracker-only:** overwrite Resume `Next:` with the next obvious action and its observable check, execute it serially using the harness's ordinary authorized process, verify the result and update the tracker. Do not invoke exec-pack or invent SPEC IDs, gates, or a wave graph for T1. If work needs an implementable build description or delegated acceptance criteria, escalate to T2 first. **T2+:** set each SPEC item's `Gate:` (absent = `auto`; `human` only for the closed strategic reason list in the SPEC template), overwrite Resume `Next:` with the first ready `Gate: auto` item (ID plus verb), then invoke the companion exec-pack skill in the same turn when its dependencies and harness capabilities are available. T0 means just do the todos. Stop gated or question-blocked work and name it; keep unblocked work moving. A merge is not intrinsically a human gate (exec-pack merges behind a reviewer and verifies before completion).
 
 ## Consumers - why the docs pay for themselves
 
@@ -83,14 +85,14 @@ A doc nobody dispatches against is ceremony. Wire each file on creation:
 ## Steps
 
 1. Name the 60% version and classify the tier; announce "Tier N - reason".
-2. Copy the templates for that tier from `templates/planning/` and fill them in; set `Outcome:`, `First-result:`, `Goal:` and a skeleton wave with a `Lane: use` item.
-3. Give every SPEC item acceptance, a verify command, `Needs:`, `Touches:` and (when it matters) `Stakes:` and `Gate:`.
+2. Copy only the templates for that tier from `templates/planning/` and fill them in; set `Outcome:`, `First-result:` and `Goal:`. T1 names its next action and check in Resume; T2+ writes a skeleton wave with a `Lane: use` item.
+3. At T2+, give every SPEC item acceptance, a verify command, `Needs:`, `Touches:` and (when it matters) `Stakes:` and `Gate:`. T1 needs no SPEC.
 4. Run `tools/plancheck/plancheck --dir plans/<topic>`; fix every blocking finding.
-5. Overwrite Resume `Next:` and hand the ready wave to exec-pack.
+5. Overwrite Resume `Next:`; execute T1's next action serially, or hand the T2+ ready wave to exec-pack after checking its dependencies.
 
 ## Output and done check
 
-Done when the files for the tier exist under `plans/<topic>/`, `plancheck --dir plans/<topic>` exits 0, Resume `Next:` names a ready item (or states why the ready set is empty), and the tier line was announced. Evidence to report: the plancheck summary line and the file list.
+Done planning when the files for the tier exist under `plans/<topic>/`, `plancheck --dir plans/<topic>` exits 0, Resume `Next:` names T1's concrete action and check or a T2+ ready item (or states what blocks further work), and the tier line was announced. Evidence to report: the plancheck summary line and the file list. Planning completion is not a claim that execution or integration is done.
 
 ## Failure handling
 

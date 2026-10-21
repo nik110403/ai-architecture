@@ -151,7 +151,7 @@ await test("shell.env appends git hardening after existing entries", async () =>
   const hook = createBashStructural({}, { loadParser: async () => ({}), log: () => {} })
   const output: any = { env: { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "a.b", GIT_CONFIG_VALUE_0: "c" } }
   await hook["shell.env"]({}, output)
-  assert.equal(output.env.GIT_CONFIG_COUNT, "6")
+  assert.equal(output.env.GIT_CONFIG_COUNT, "5")
   assert.equal(output.env.GIT_CONFIG_KEY_1, "core.fsmonitor")
   assert.equal(output.env.GIT_CONFIG_KEY_0, "a.b")
 })

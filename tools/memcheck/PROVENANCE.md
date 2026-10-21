@@ -1,11 +1,11 @@
 # Provenance: memcheck
 
-Source: claude_improvement/bin/memcheck
+Source: author's private operator repository, bin/memcheck
 Source-sha256: d9100b3e5be3c83069eaf69778a593d8721148420f39283033a8154309b02fd9
 State: adapted
 
-Also derived from claude_improvement/bin/lib/sanitize.sh (lib/sanitize.sh, near-verbatim) and
-claude_improvement/bin/tests/test-memcheck.sh (tests/run.sh, extended).
+Also derived from that repository's bin/lib/sanitize.sh (lib/sanitize.sh, near-verbatim) and
+bin/tests/test-memcheck.sh (tests/run.sh, extended).
 
 ## Deltas
 
@@ -16,3 +16,4 @@ claude_improvement/bin/tests/test-memcheck.sh (tests/run.sh, extended).
 - Usage errors (missing or invalid `--root`) exit 2; the report itself still always exits 0.
 - Comments and fixtures rewritten to generic, fictional content; no spec or plan references.
 - Tests: the source's shorten tests are ported against fictional fixtures; added tests for scan checks, fix-index, trust-root refusals, env-var immunity, sanitization, and usage errors.
+- Dry-run fix-index and shorten do not create lock, audit or temporary rewrite files; locking and writes require `--apply`.

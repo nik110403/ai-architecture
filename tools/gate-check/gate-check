@@ -123,7 +123,9 @@ def main():
                     g["check"], shell=True, capture_output=True, text=True, timeout=args.timeout,
                 )
                 output = f"{res.stdout or ''}\n{res.stderr or ''}"
-                ok = expect_matches(g["expect"], output) if g["expect"] else res.returncode == 0
+                ok = res.returncode == 0 and (
+                    not g["expect"] or expect_matches(g["expect"], output)
+                )
             except subprocess.TimeoutExpired:
                 ok = False
                 output = f"(timed out after {args.timeout}s)"

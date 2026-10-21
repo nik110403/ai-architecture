@@ -6,16 +6,22 @@ Candidates: <cwd>/TRACKER.md, <cwd>/plans/*/TRACKER.md, <cwd>/HANDOFF.md. Realpa
 Dropped: anything under /.claude/worktrees/ (duplicate trackers inside a worktree checkout),
 anything whose realpath resolves outside the repo root (a symlink escaping the repo -- the
 legit `plans/topic -> ../topic` symlink stays inside and passes), and
-anything whose header marks the pack `Status: done|abandoned|promoted` (regex copied verbatim
-from clean-state-check.py's `tracker_status`).
+anything whose header marks the pack `Status:` in CLOSED_STATUSES.
 """
+
 import glob
 import os
 import re
 import stat
 import subprocess
 
-_STATUS_RE = re.compile(r"(?m)^\*{0,2}Status:\s*\**\s*((?i:active|done|abandoned|promoted))")
+CLOSED_STATUSES = ("done", "abandoned", "promoted", "parked")
+
+_STATUS_RE = re.compile(
+    r"(?m)^\*{0,2}Status:\s*\**\s*((?i:active|"
+    + "|".join(map(re.escape, CLOSED_STATUSES))
+    + "))"
+)
 
 
 def printable(s, cap):
@@ -40,7 +46,9 @@ def _repo_root(cwd):
     try:
         r = subprocess.run(
             ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
             return os.path.realpath(r.stdout.strip())
@@ -149,7 +157,9 @@ def active_trackers(cwd):
     if os.path.isfile(root_tracker):
         candidates.append(root_tracker)
     try:
-        candidates.extend(sorted(glob.glob(os.path.join(cwd, "plans", "*", "TRACKER.md"))))
+        candidates.extend(
+            sorted(glob.glob(os.path.join(cwd, "plans", "*", "TRACKER.md")))
+        )
     except Exception:
         pass
     handoff = os.path.join(cwd, "HANDOFF.md")
@@ -169,7 +179,7 @@ def active_trackers(cwd):
             continue
         if real != root and not real.startswith(root + os.sep):
             continue
-        if tracker_status(real) in ("done", "abandoned", "promoted"):
+        if tracker_status(real) in CLOSED_STATUSES:
             continue
         try:
             mtime = os.path.getmtime(real)

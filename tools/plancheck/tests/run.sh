@@ -14,8 +14,14 @@ BIN="$TOOL_DIR/plancheck"
 
 pass=0
 fail=0
-ok()  { echo "PASS: $1"; pass=$((pass+1)); }
-bad() { echo "FAIL: $1"; fail=$((fail+1)); }
+ok() {
+	echo "PASS: $1"
+	pass=$((pass + 1))
+}
+bad() {
+	echo "FAIL: $1"
+	fail=$((fail + 1))
+}
 
 TMPD="$(mktemp -d)"
 cleanup() { rm -rf "$TMPD"; }
@@ -28,8 +34,8 @@ if bash -n "$SELF_DIR/run.sh"; then ok "T2 bash -n self clean"; else bad "T2 bas
 export PLANCHECK_DEFAULT_ROOT="$TMPD/root"
 ROOT="$PLANCHECK_DEFAULT_ROOT"
 
-minimal_tracker() {  # dir label
-  cat > "$1/TRACKER.md" <<EOF
+minimal_tracker() { # dir label
+	cat >"$1/TRACKER.md" <<EOF
 # $2 — Tracker
 
 **Status: active**
@@ -46,13 +52,13 @@ EOF
 # --- Fixture: 6 open Qn (over the soft cap) ---------------------------------------------------
 mkdir -p "$ROOT/proj/plans/pack-open6"
 minimal_tracker "$ROOT/proj/plans/pack-open6" "pack-open6"
-cat > "$ROOT/proj/plans/pack-open6/SPEC.md" <<'EOF'
+cat >"$ROOT/proj/plans/pack-open6/SPEC.md" <<'EOF'
 ### S1 — fixture item
 - What: fixture
 - Acceptance: fixture
 - Verify: `true`
 EOF
-cat > "$ROOT/proj/plans/pack-open6/QUESTIONS.md" <<'EOF'
+cat >"$ROOT/proj/plans/pack-open6/QUESTIONS.md" <<'EOF'
 ## Q1 · a
 Context.
 - [ ] A
@@ -84,13 +90,13 @@ EOF
 # --- Fixture: 5 open Qn (at the soft cap, no flag) --------------------------------------------
 mkdir -p "$ROOT/proj/plans/pack-open5"
 minimal_tracker "$ROOT/proj/plans/pack-open5" "pack-open5"
-cat > "$ROOT/proj/plans/pack-open5/SPEC.md" <<'EOF'
+cat >"$ROOT/proj/plans/pack-open5/SPEC.md" <<'EOF'
 ### S1 — fixture item
 - What: fixture
 - Acceptance: fixture
 - Verify: `true`
 EOF
-cat > "$ROOT/proj/plans/pack-open5/QUESTIONS.md" <<'EOF'
+cat >"$ROOT/proj/plans/pack-open5/QUESTIONS.md" <<'EOF'
 ## Q1 · a
 Context.
 - [ ] A
@@ -115,7 +121,7 @@ EOF
 # --- Fixture: 2 Assumption lines ---------------------------------------------------------------
 mkdir -p "$ROOT/proj/plans/pack-assump"
 minimal_tracker "$ROOT/proj/plans/pack-assump" "pack-assump"
-cat > "$ROOT/proj/plans/pack-assump/SPEC.md" <<'EOF'
+cat >"$ROOT/proj/plans/pack-assump/SPEC.md" <<'EOF'
 ### S1 — first
 - What: fixture
 - Acceptance: fixture
@@ -132,7 +138,7 @@ EOF
 # --- Fixture: item field coverage (one full item, one missing Verify+Touches) ------------------
 mkdir -p "$ROOT/proj/plans/pack-fields"
 minimal_tracker "$ROOT/proj/plans/pack-fields" "pack-fields"
-cat > "$ROOT/proj/plans/pack-fields/SPEC.md" <<'EOF'
+cat >"$ROOT/proj/plans/pack-fields/SPEC.md" <<'EOF'
 ### S1 — full item
 - What: does the thing
 - Acceptance: it works
@@ -149,38 +155,38 @@ OUT="$("$BIN" --dir "$ROOT/proj/plans")"
 
 # --- T3/T4: open-Qn soft cap (check 12) ---------------------------------------------------------
 if grep -q 'pack-open6 — 6 open questions (soft cap 5)' <<<"$OUT"; then
-  ok "T3 6 open Qn -> ℹ️ present"
+	ok "T3 6 open Qn -> ℹ️ present"
 else
-  bad "T3 6 open Qn -> ℹ️ present"
+	bad "T3 6 open Qn -> ℹ️ present"
 fi
 if grep -q 'pack-open5 —.*open questions' <<<"$OUT"; then
-  bad "T4 5 open Qn -> no ℹ️ (soft cap not exceeded)"
+	bad "T4 5 open Qn -> no ℹ️ (soft cap not exceeded)"
 else
-  ok "T4 5 open Qn -> no ℹ️ (soft cap not exceeded)"
+	ok "T4 5 open Qn -> no ℹ️ (soft cap not exceeded)"
 fi
 
 # --- T5: Assumption-lines aggregate (check 12) --------------------------------------------------
 if grep -qE '^Assumption lines: 2 across [0-9]+ packs$' <<<"$OUT"; then
-  ok "T5 2 Assumption lines -> aggregate says 2"
+	ok "T5 2 Assumption lines -> aggregate says 2"
 else
-  bad "T5 2 Assumption lines -> aggregate says 2"
+	bad "T5 2 Assumption lines -> aggregate says 2"
 fi
 
 # --- T6/T7/T8: item field coverage (check 13) ---------------------------------------------------
 if grep -q 'pack-fields: S2 missing: Verify, Touches' <<<"$OUT"; then
-  ok "T6 item missing Verify+Touches -> ℹ️ names both"
+	ok "T6 item missing Verify+Touches -> ℹ️ names both"
 else
-  bad "T6 item missing Verify+Touches -> ℹ️ names both"
+	bad "T6 item missing Verify+Touches -> ℹ️ names both"
 fi
 if grep -q 'pack-fields: S1 missing' <<<"$OUT"; then
-  bad "T7 full item -> no ℹ️"
+	bad "T7 full item -> no ℹ️"
 else
-  ok "T7 full item -> no ℹ️"
+	ok "T7 full item -> no ℹ️"
 fi
 if grep -q 'pack-fields — fields: Acc 2/2 · Ver 1/2 · Needs 1/2 · Touches 1/2' <<<"$OUT"; then
-  ok "T8 coverage line matches expected counts"
+	ok "T8 coverage line matches expected counts"
 else
-  bad "T8 coverage line matches expected counts"
+	bad "T8 coverage line matches expected counts"
 fi
 
 # --- T9: exit status: 0 with no blocking finding, 1 with one, --report-only always 0 -------------
@@ -189,23 +195,25 @@ rc=$?
 if [ "$rc" -eq 0 ]; then ok "T9a plancheck exits 0 (no blocking finding)"; else bad "T9a plancheck exits 0 (no blocking finding); got rc=$rc"; fi
 mkdir -p "$TMPD/blocked/pack-blocked"
 minimal_tracker "$TMPD/blocked/pack-blocked" "pack-blocked"
-printf '### S1 — x\n- Needs: S9\n' > "$TMPD/blocked/pack-blocked/SPEC.md"
-"$BIN" --dir "$TMPD/blocked" >/dev/null; rc=$?
+printf '### S1 — x\n- Needs: S9\n' >"$TMPD/blocked/pack-blocked/SPEC.md"
+"$BIN" --dir "$TMPD/blocked" >/dev/null
+rc=$?
 if [ "$rc" -eq 1 ]; then ok "T9b dangling Needs -> exit 1"; else bad "T9b dangling Needs -> exit 1; got rc=$rc"; fi
-"$BIN" --dir "$TMPD/blocked" --report-only >/dev/null; rc=$?
+"$BIN" --dir "$TMPD/blocked" --report-only >/dev/null
+rc=$?
 if [ "$rc" -eq 0 ]; then ok "T9c --report-only -> exit 0 despite blocking finding"; else bad "T9c --report-only -> exit 0; got rc=$rc"; fi
 
 # --- T10: PLANCHECK_DEFAULT_ROOT override reaches the default sweep too --------------------------
 DEFAULT_OUT="$("$BIN")"
 if grep -q 'pack-open6 — 6 open questions (soft cap 5)' <<<"$DEFAULT_OUT"; then
-  ok "T10 PLANCHECK_DEFAULT_ROOT override reaches default (no --dir) sweep"
+	ok "T10 PLANCHECK_DEFAULT_ROOT override reaches default (no --dir) sweep"
 else
-  bad "T10 PLANCHECK_DEFAULT_ROOT override reaches default (no --dir) sweep"
+	bad "T10 PLANCHECK_DEFAULT_ROOT override reaches default (no --dir) sweep"
 fi
 
 # --- Fixtures: gates (check 14) + Resume Next waiting on the owner (check 15) ---------------------------
-gate_tracker() {  # dir label next-line
-  cat > "$1/TRACKER.md" <<EOF
+gate_tracker() { # dir label next-line
+	cat >"$1/TRACKER.md" <<EOF
 # $2 — Tracker
 
 **Status: active**
@@ -222,7 +230,7 @@ GROOT="$TMPD/gates"
 mkdir -p "$GROOT/pack-gated" "$GROOT/pack-ungated"
 gate_tracker "$GROOT/pack-gated" "pack-gated" "**Next:** S2 on the owner's go."
 gate_tracker "$GROOT/pack-ungated" "pack-ungated" '**Next action:** awaiting the owner before S1.'
-cat > "$GROOT/pack-gated/SPEC.md" <<'EOF'
+cat >"$GROOT/pack-gated/SPEC.md" <<'EOF'
 ### S1 — auto item
 - Acceptance: x
 - Verify: `true`
@@ -233,7 +241,7 @@ cat > "$GROOT/pack-gated/SPEC.md" <<'EOF'
 - Acceptance: x
 - Verify: `true`
 - Touches: b/
-- Gate: human — Live Install into the shared config
+- Gate: human — External publication
 
 ### S3 — gated with bogus reason
 - Acceptance: x
@@ -247,7 +255,7 @@ cat > "$GROOT/pack-gated/SPEC.md" <<'EOF'
 - Touches: d/
 - Gate: maybe
 EOF
-cat > "$GROOT/pack-ungated/SPEC.md" <<'EOF'
+cat >"$GROOT/pack-ungated/SPEC.md" <<'EOF'
 ### S1 — no gate field
 - Acceptance: x
 - Verify: `true`
@@ -256,36 +264,58 @@ EOF
 GOUT="$("$BIN" --dir "$GROOT")"
 
 if grep -qE 'pack-gated: S(1|2) Gate' <<<"$GOUT"; then
-  bad "T11 Gate: auto / human with allowed reason -> no ℹ️"
+	bad "T11 Gate: auto / human with allowed reason -> no ℹ️"
 else
-  ok "T11 Gate: auto / human with allowed reason -> no ℹ️"
+	ok "T11 Gate: auto / human with allowed reason -> no ℹ️"
 fi
 if grep -q 'pack-gated: S3 Gate: human reason not in allowed list' <<<"$GOUT"; then
-  ok "T12 Gate: human with bogus reason -> ℹ️"
+	ok "T12 Gate: human with bogus reason -> ℹ️"
 else
-  bad "T12 Gate: human with bogus reason -> ℹ️"
+	bad "T12 Gate: human with bogus reason -> ℹ️"
 fi
 if grep -q 'pack-gated: S4 Gate: invalid value' <<<"$GOUT"; then
-  ok "T13 Gate: invalid value -> ℹ️"
+	ok "T13 Gate: invalid value -> ℹ️"
 else
-  bad "T13 Gate: invalid value -> ℹ️"
+	bad "T13 Gate: invalid value -> ℹ️"
 fi
 if grep -q 'pack-gated: Resume Next waits on the human owner' <<<"$GOUT"; then
-  bad "T14 Next on the owner's go naming a Gate: human item -> no ℹ️"
+	bad "T14 Next on the owner's go naming a Gate: human item -> no ℹ️"
 else
-  ok "T14 Next on the owner's go naming a Gate: human item -> no ℹ️"
+	ok "T14 Next on the owner's go naming a Gate: human item -> no ℹ️"
 fi
 if grep -q 'pack-ungated: Resume Next waits on the human owner but no named Gate: human item' <<<"$GOUT"; then
-  ok "T15 Next awaiting the owner without a Gate: human item -> ℹ️"
+	ok "T15 Next awaiting the owner without a Gate: human item -> ℹ️"
 else
-  bad "T15 Next awaiting the owner without a Gate: human item -> ℹ️"
+	bad "T15 Next awaiting the owner without a Gate: human item -> ℹ️"
 fi
 
 # --- T16/T17: the shipped example packs: clean pack exits 0, broken pack exits non-zero -----------
-"$BIN" --dir "$TOOL_DIR/example" >/dev/null; rc=$?
+"$BIN" --dir "$TOOL_DIR/example" >/dev/null
+rc=$?
 if [ "$rc" -eq 0 ]; then ok "T16 example pack -> exit 0"; else bad "T16 example pack -> exit 0; got rc=$rc"; fi
-BOUT="$("$BIN" --dir "$TOOL_DIR/example-broken")"; rc=$?
+BOUT="$("$BIN" --dir "$TOOL_DIR/example-broken")"
+rc=$?
 if [ "$rc" -ne 0 ] && grep -q '⛔' <<<"$BOUT"; then ok "T17 example-broken pack -> non-zero exit with ⛔ findings"; else bad "T17 example-broken pack -> non-zero; got rc=$rc"; fi
+
+# Strategic reasons are valid regardless of case; technical acts alone are not.
+mkdir -p "$TMPD/gate-reasons"
+minimal_tracker "$TMPD/gate-reasons" "gate-reasons"
+for reason in scope direction money external publication taste 'unrecoverable data loss'; do
+	printf '### S1 — fixture\n- Gate: human — %s\n' "${reason^^}" >"$TMPD/gate-reasons/SPEC.md"
+	ROUT="$("$BIN" --dir "$TMPD/gate-reasons")"
+	if grep -q 'S1 Gate:' <<<"$ROUT"; then bad "strategic gate accepted: $reason"; else ok "strategic gate accepted: $reason"; fi
+done
+for reason in install merge delete overwrite 'outside repo' 'feels risky'; do
+	printf '### S1 — fixture\n- Gate: human — %s\n' "$reason" >"$TMPD/gate-reasons/SPEC.md"
+	ROUT="$("$BIN" --dir "$TMPD/gate-reasons")"
+	if grep -q 'S1 Gate: human reason not in allowed list' <<<"$ROUT"; then ok "technical/vague gate rejected: $reason"; else bad "technical/vague gate rejected: $reason"; fi
+done
+
+if python3 -B "$TOOL_DIR/../../tests/test_plancheck.py"; then
+	ok "graph and closed-status regressions"
+else
+	bad "graph and closed-status regressions"
+fi
 
 echo "----"
 echo "$pass passed, $fail failed"

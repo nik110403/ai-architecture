@@ -17,10 +17,17 @@ that is the ONLY writer of the record. Subcommands:
   close <ws> <reason> <round>      append `## Closed — <reason>, round <k>`, update
                                     TRANSCRIPT.SHA256, remove the marker. reason must be one of
                                     saturation|cap|refuter-handoff.
-  verify <ws>                      recompute every turns/ file's sha against its transcript
+  verify <ws> [--expect-head <sha>] recompute every turns/ file's sha against its transcript
                                     heading, the transcript sha against TRANSCRIPT.SHA256's last
                                     line, and every fenced payload in transcript.md against its
-                                    turns/ file, byte for byte. Exit 0 clean, 3 with a list.
+                                    turns/ file, byte for byte, and verify CHAIN.SHA256.
+                                    Exit 0 clean, 3 with a list, 2 for invalid arguments.
+
+Every append/close adds a CHAIN.SHA256 record and prints `chain-head <sha>` (close also
+prints `close-head: <sha>`). Retain that head outside the workspace and supply it to
+`verify --expect-head` to detect a consistent rewrite or rollback. Plain verify checks
+local consistency only: an editable workspace cannot authenticate its own head. No
+external anchor storage, host policy, or automatic commits are provided by this tool.
 
 Integrity check (append/close), both required:
   1. If <ws>/TRANSCRIPT.SHA256 exists, its last line's sha must equal sha256(transcript.md) —
@@ -48,6 +55,7 @@ from pathlib import Path
 
 PROG = "tribunal-scribe"
 REASONS = {"saturation", "cap", "refuter-handoff"}
+CHAIN_NAME = "CHAIN.SHA256"
 
 ROUND_RE = re.compile(b'^## Round (\\d+)(?: \xe2\x80\x94 opening statements)?$')
 SEAT_RE = re.compile(rb'^### Seat (\d+) \((.*)\) sha256:([0-9a-f]{64})$')
@@ -135,6 +143,76 @@ def integrity_check(ws: Path, marker_head: str):
     if commits:
         die(3, "non-scribe commit touched the record: " + ", ".join(commits))
 
+    transcript = ws / "transcript.md"
+    if transcript.exists() or (ws / CHAIN_NAME).exists():
+        data = transcript.read_bytes() if transcript.is_file() else b""
+        issues, _ = chain_issues(ws, data, _parse_transcript(data))
+        if issues:
+            die(3, "; ".join(issues))
+
+
+def chain_hash(prev_line: str, tag: str, turn_sha: str, transcript_sha: str) -> str:
+    return sha256_bytes((prev_line + tag + turn_sha + transcript_sha).encode())
+
+
+def chain_lines(ws: Path):
+    p = ws / CHAIN_NAME
+    return p.read_text().splitlines() if p.is_file() else []
+
+
+def chain_add(ws: Path, tag: str, turn_sha: str) -> str:
+    lines = chain_lines(ws)
+    transcript_sha = sha256_file(ws / "transcript.md")
+    head = chain_hash(lines[-1] if lines else "", tag, turn_sha, transcript_sha)
+    with (ws / CHAIN_NAME).open("a") as f:
+        f.write(f"{head} {tag} {turn_sha} {transcript_sha}\n")
+    return head
+
+
+def chain_issues(ws: Path, data: bytes, entries):
+    """Recompute the upstream line-linked format; never trust paths from chain tags."""
+    issues = []
+    lines = chain_lines(ws)
+    if not lines:
+        return ["CHAIN.SHA256 missing or empty"], None
+    prev = ""
+    head = None
+    turns = []
+    transcript_shas = []
+    for n, line in enumerate(lines, 1):
+        m = re.fullmatch(r"([0-9a-f]{64}) (r\d+-s\d+|close) ([0-9a-f]{64}) ([0-9a-f]{64})", line)
+        if not m:
+            issues.append(f"CHAIN.SHA256 line {n}: malformed")
+            break
+        h, tag, tsha, trsha = m.groups()
+        if chain_hash(prev, tag, tsha, trsha) != h:
+            issues.append(f"CHAIN.SHA256 line {n}: hash does not recompute")
+        if tag == "close":
+            closing = data.rstrip(b"\n").rsplit(b"\n", 1)[-1]
+            if n != len(lines) or not re.fullmatch(
+                rb"## Closed \xe2\x80\x94 (?:saturation|cap|refuter-handoff), round -?\d+", closing
+            ) or sha256_bytes(closing) != tsha:
+                issues.append(f"CHAIN.SHA256 line {n}: closing record mismatch")
+            if marker_path(ws).exists():
+                issues.append("closed chain still has an active marker")
+        else:
+            turns.append((tag, tsha))
+            tf = ws / "turns" / f"{tag}.md"
+            if not tf.is_file() or sha256_file(tf) != tsha:
+                issues.append(f"CHAIN.SHA256 line {n}: turn {tag} sha mismatch or file missing")
+        transcript_shas.append(trsha)
+        prev, head = line, h
+    expected_turns = [(f"r{e['round']}-s{e['seat']}", e["hash"]) for e in entries]
+    if turns != expected_turns or len(set(tag for tag, _ in turns)) != len(turns):
+        issues.append("CHAIN.SHA256 turn order/count/hash != transcript entries")
+    if transcript_shas and transcript_shas[-1] != sha256_bytes(data):
+        issues.append("CHAIN.SHA256 last transcript sha != transcript.md sha")
+    checksum = transcript_sha_file(ws)
+    recorded = [line.split()[0] for line in checksum.read_text().splitlines() if line.strip()] if checksum.is_file() else []
+    if recorded != transcript_shas:
+        issues.append("CHAIN.SHA256 transcript hashes != TRANSCRIPT.SHA256 history")
+    return issues, head
+
 
 def append_transcript_sha(ws: Path, note: str):
     transcript = ws / "transcript.md"
@@ -148,7 +226,7 @@ def append_transcript_sha(ws: Path, note: str):
 def cmd_open(argv):
     if len(argv) != 1:
         die(2, "usage: tribunal-scribe open <ws>")
-    ws = Path(argv[0])
+    ws = Path(argv[0]).resolve()
 
     leftovers = []
     if (ws / "turns").exists():
@@ -157,6 +235,9 @@ def cmd_open(argv):
         leftovers.append("seat-*.md")
     if (ws / "transcript.md").exists():
         leftovers.append("transcript.md")
+    for extra in (CHAIN_NAME, "TRANSCRIPT.SHA256"):
+        if (ws / extra).exists():
+            leftovers.append(extra)
     if leftovers:
         die(1, f"prior-run leftovers in {ws}: {', '.join(leftovers)} — move them to "
                 f"{ws}/prior-run-<ts>/ or pick a fresh workspace")
@@ -238,7 +319,7 @@ def _has_real_heading(data: bytes, heading: bytes) -> bool:
 def cmd_append(argv):
     if len(argv) != 5:
         die(2, "usage: tribunal-scribe append <ws> <round> <seat> <lens> <payload-file>")
-    ws = Path(argv[0])
+    ws = Path(argv[0]).resolve()
     try:
         round_ = int(argv[1])
         seat = int(argv[2])
@@ -292,7 +373,9 @@ def cmd_append(argv):
     transcript_path.write_bytes(out)
 
     append_transcript_sha(ws, f"after r{round_}-s{seat}")
+    head = chain_add(ws, f"r{round_}-s{seat}", sha_full)
     print(f"appended round {round_} seat {seat} ({lens}) -> {turn_path}")
+    print(f"chain-head {head}")
 
 
 # ---------- close ----------
@@ -300,7 +383,7 @@ def cmd_append(argv):
 def cmd_close(argv):
     if len(argv) != 3:
         die(2, "usage: tribunal-scribe close <ws> <reason> <round>")
-    ws = Path(argv[0])
+    ws = Path(argv[0]).resolve()
     reason = argv[1]
     try:
         round_ = int(argv[2])
@@ -322,8 +405,11 @@ def cmd_close(argv):
     transcript_path.write_bytes(out)
 
     append_transcript_sha(ws, "after close")
+    head = chain_add(ws, "close", sha256_bytes(closing))
     marker_path(ws).unlink(missing_ok=True)
     print(f"closed {ws}: {reason}, round {round_}")
+    print(f"chain-head {head}")
+    print(f"close-head: {head}")
 
 
 # ---------- verify ----------
@@ -375,21 +461,50 @@ def _parse_transcript(data: bytes):
 
 
 def cmd_verify(argv):
+    expect_head = None
+    if "--expect-head" in argv:
+        i = argv.index("--expect-head")
+        if i + 1 >= len(argv) or not re.fullmatch(r"[0-9a-f]{64}", argv[i + 1]):
+            die(2, "--expect-head needs a 64-hex sha256 value")
+        expect_head = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
     if len(argv) != 1:
-        die(2, "usage: tribunal-scribe verify <ws>")
-    ws = Path(argv[0])
+        die(2, "usage: tribunal-scribe verify <ws> [--expect-head <sha>]")
+    ws = Path(argv[0]).resolve()
     issues = []
 
+    if not ws.is_dir():
+        die(3, f"workspace is not a directory: {ws}")
+    turns_dir = ws / "turns"
+    if not turns_dir.is_dir():
+        issues.append("turns/ missing or not a directory")
+
     transcript_path = ws / "transcript.md"
-    transcript_data = transcript_path.read_bytes() if transcript_path.exists() else b""
+    transcript_data = transcript_path.read_bytes() if transcript_path.is_file() else b""
+    checksum_path = transcript_sha_file(ws)
+    pristine_open = (
+        marker_path(ws).is_file() and turns_dir.is_dir()
+        and not any(turns_dir.iterdir()) and not list(ws.glob("seat-*.md"))
+        and not transcript_path.exists() and not checksum_path.exists()
+        and not (ws / CHAIN_NAME).exists()
+    )
+    if not pristine_open:
+        if not transcript_path.is_file() or not transcript_data:
+            issues.append("transcript.md missing, empty or not a file")
+        if not checksum_path.is_file():
+            issues.append("TRANSCRIPT.SHA256 missing or not a file")
     entries = _parse_transcript(transcript_data)
+    if not pristine_open and not entries and not re.fullmatch(
+        rb"## Closed \xe2\x80\x94 (?:saturation|cap|refuter-handoff), round -?\d+\n",
+        transcript_data,
+    ):
+        issues.append("transcript.md has no turn evidence or closing record")
 
     # 1. every turns/ file sha vs the sha in its transcript heading
     by_key = {}
     for e in entries:
         by_key[(e["round"], e["seat"])] = e
-    turns_dir = ws / "turns"
-    turn_files = sorted(turns_dir.glob("r*-s*.md")) if turns_dir.exists() else []
+    turn_files = sorted(turns_dir.glob("r*-s*.md")) if turns_dir.is_dir() else []
     seen_keys = set()
     turn_re = re.compile(r'^r(\d+)-s(\d+)\.md$')
     for tf in turn_files:
@@ -410,9 +525,9 @@ def cmd_verify(argv):
             issues.append(f"transcript round {e['round']} seat {e['seat']}: no turns/r{key[0]}-s{key[1]}.md on disk")
 
     # 2. transcript sha vs TRANSCRIPT.SHA256 last line
-    recorded = last_recorded_sha(ws)
-    if transcript_path.exists() or recorded is not None:
-        actual_transcript_sha = sha256_file(transcript_path) if transcript_path.exists() else None
+    recorded = last_recorded_sha(ws) if checksum_path.is_file() else None
+    if not pristine_open:
+        actual_transcript_sha = sha256_bytes(transcript_data) if transcript_path.is_file() else None
         if recorded is None:
             issues.append("TRANSCRIPT.SHA256 missing or empty while transcript.md exists")
         elif actual_transcript_sha != recorded:
@@ -430,12 +545,32 @@ def cmd_verify(argv):
         if not ok:
             issues.append(f"transcript round {key[0]} seat {key[1]}: fenced payload != turns/{tf.name}")
 
+    head = None
+    if not pristine_open:
+        chain_errors, head = chain_issues(ws, transcript_data, entries)
+        issues.extend(chain_errors)
+    marker = read_marker(ws)
+    if marker is not None and not re.fullmatch(r"[0-9a-f]{40}", marker.get("head", "")):
+        issues.append("marker head is not a 40-hex commit sha")
+    for sf in sorted(ws.glob("seat-*.md")):
+        m = re.fullmatch(r"seat-(\d+)-.+\.md", sf.name)
+        tf = turns_dir / f"r0-s{m.group(1)}.md" if m else None
+        if tf is None or not tf.is_file() or sf.read_bytes() != tf.read_bytes():
+            issues.append(f"{sf.name}: missing or different r0 turn")
+    for key, e in by_key.items():
+        if key[0] == 0 and not (ws / f"seat-{key[1]}-{e['lens']}.md").is_file():
+            issues.append(f"round 0 seat {key[1]}: seat file missing")
+    if expect_head is not None and expect_head != head:
+        issues.append(f"chain head {head} != --expect-head {expect_head}")
+    if head:
+        print(f"chain-head {head}")
     if issues:
         print(f"{PROG} verify: {len(issues)} issue(s) in {ws}")
         for i in issues:
             print(f"  - {i}")
         sys.exit(3)
-    print(f"{PROG} verify: clean ({ws})")
+    scope = "caller-supplied head matched" if expect_head is not None else "local consistency only; no external anchor supplied"
+    print(f"{PROG} verify: clean ({ws}); {scope}")
 
 
 def main():
@@ -450,7 +585,10 @@ def main():
     elif cmd == "close":
         cmd_close(rest)
     elif cmd == "verify":
-        cmd_verify(rest)
+        try:
+            cmd_verify(rest)
+        except (OSError, UnicodeDecodeError) as e:
+            die(3, f"unreadable record: {e}")
     else:
         die(2, f"unknown subcommand: {cmd}")
 

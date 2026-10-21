@@ -28,9 +28,10 @@ at most 15):
                         is ignored AND rotation is skipped for independent roles.
 An invalid pin is ignored and the weighted draw runs.
 
-Output: permissionDecision "allow" with updatedInput. That auto-approves the dispatch; other
-hooks' deny/ask decisions still win. A pool model name the harness does not accept may make the
-harness reject the dispatch (it is not silently replaced by the default).
+Output: updatedInput only, with no permissionDecision. Rotation does not approve dispatches
+or start workers; the harness's existing permission policy still decides whether to run them.
+A pool model name the harness does not accept may make the harness reject the dispatch
+(it is not silently replaced by the default).
 
 Env: MODEL_ROTATION=off disables. ROTATION_POOL / ROTATION_LOG must be absolute paths outside
 CLAUDE_PROJECT_DIR and the cwd (a project must not choose them); otherwise the default pool is
@@ -38,6 +39,7 @@ used / no log is written. ROTATION_LOG appends one JSON row per decision and per
 ROTATION_SEED=<text> makes the draw deterministic, honoured only together with ROTATION_TEST=1
 (tests/replays; a seeded run always gets the same model); otherwise the draw uses secrets.randbelow.
 """
+
 import json
 import os
 import random
@@ -68,16 +70,28 @@ def env_path(name):
     v = os.environ.get(name)
     if not v or not os.path.isabs(v):
         return None
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
+    sys.path.insert(
+        0,
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"
+        ),
+    )
     from gates_config import _inside, project_dirs
+
     if any(_inside(v, d) for d in project_dirs()):
         return None
     return v
 
 
 def _home():
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
+    sys.path.insert(
+        0,
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"
+        ),
+    )
     from gates_config import home
+
     return home()
 
 
@@ -108,7 +122,11 @@ def role_arms(entries):
         model, weight, enabled = e.get("model"), e.get("weight"), e.get("enabled", True)
         if not isinstance(model, str) or not MODEL_RE.fullmatch(model):
             return None
-        if isinstance(weight, bool) or not isinstance(weight, int) or not 0 <= weight <= MAX_WEIGHT:
+        if (
+            isinstance(weight, bool)
+            or not isinstance(weight, int)
+            or not 0 <= weight <= MAX_WEIGHT
+        ):
             return None
         if not isinstance(enabled, bool):
             return None
@@ -119,8 +137,16 @@ def role_arms(entries):
 
 def draw(eligible):
     total = sum(w for _, w in eligible)
-    seed = os.environ.get("ROTATION_SEED") if os.environ.get("ROTATION_TEST") == "1" else None
-    r = random.Random("rotation:" + seed).randrange(total) if seed else secrets.randbelow(total)
+    seed = (
+        os.environ.get("ROTATION_SEED")
+        if os.environ.get("ROTATION_TEST") == "1"
+        else None
+    )
+    r = (
+        random.Random("rotation:" + seed).randrange(total)
+        if seed
+        else secrets.randbelow(total)
+    )
     for model, w in eligible:
         if r < w:
             return model
@@ -148,8 +174,16 @@ CTX = {"session_id": None, "role": None}
 
 def bail(reason):
     """Fail-safe exit: print nothing; log a reason row when ROTATION_LOG is usable."""
-    write_log({"t": int(time.time()), "session_id": CTX["session_id"], "role": CTX["role"],
-               "model": None, "pinned": False, "reason": reason})
+    write_log(
+        {
+            "t": int(time.time()),
+            "session_id": CTX["session_id"],
+            "role": CTX["role"],
+            "model": None,
+            "pinned": False,
+            "reason": reason,
+        }
+    )
 
 
 def main():
@@ -160,7 +194,9 @@ def main():
         return bail("payload is not an object")
     sid = payload.get("session_id")
     CTX["session_id"] = sid if isinstance(sid, str) else None
-    if payload.get("hook_event_name") != "PreToolUse" or payload.get("tool_name") not in ("Task", "Agent"):
+    if payload.get("hook_event_name") != "PreToolUse" or payload.get(
+        "tool_name"
+    ) not in ("Task", "Agent"):
         return bail("not a Task/Agent PreToolUse")
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
@@ -173,7 +209,8 @@ def main():
     prompt = prompt if isinstance(prompt, str) else ""
 
     path = env_path("ROTATION_POOL") or os.path.join(
-        _home(), ".config", "ai-architecture", "model-pool.json")
+        _home(), ".config", "ai-architecture", "model-pool.json"
+    )
     try:
         pool = load_pool(path)
     except (OSError, ValueError):
@@ -220,11 +257,27 @@ def main():
     updated = dict(tool_input)
     updated["model"] = chosen
 
-    write_log({"t": int(time.time()), "session_id": CTX["session_id"], "role": role,
-               "model": chosen, "pinned": pinned, "reason": "; ".join(reasons) or None})
+    write_log(
+        {
+            "t": int(time.time()),
+            "session_id": CTX["session_id"],
+            "role": role,
+            "model": chosen,
+            "pinned": pinned,
+            "reason": "; ".join(reasons) or None,
+        }
+    )
 
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse", "permissionDecision": "allow", "updatedInput": updated}}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "updatedInput": updated,
+                }
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "name": "ai-architecture",
-  "version": "0.4.1-preview",
+  "version": "0.4.2-preview",
   "description": "A generic extract of an agent workflow setup: plan packs, maker/checker review roles, resumable handoffs and offline tools, with an opt-in guard-hook plugin and an OpenCode bridge.",
   "author": {"name": "Nik", "url": "https://github.com/nik110403"}
 }

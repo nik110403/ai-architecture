@@ -13,13 +13,19 @@ resume-inject.py. Contract: {"decision":"block","reason":...} feeds the reason b
 continues; stop_hook_active nudges once. Never exits nonzero. The transcript JSONL format can
 change between Claude Code versions.
 """
+
 import sys, json, os, re, glob, subprocess
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import gates_config
+from trackers import CLOSED_STATUSES, tracker_status
+
 d = gates_config.init("stop")  # payload first; unparseable -> block
 CFG = gates_config.load()
 gates_config.warn_if_invalid()  # invalid user config: defaults stay in force, say so
-BUILDER_ROLES = {gates_config.role(r) for r in (CFG.get("builder_roles") or []) if isinstance(r, str)}
+BUILDER_ROLES = {
+    gates_config.role(r) for r in (CFG.get("builder_roles") or []) if isinstance(r, str)
+}
 
 
 # stop_hook_active no longer skips the walk -- only the nag emission below. The walk +
@@ -27,41 +33,39 @@ BUILDER_ROLES = {gates_config.role(r) for r in (CFG.get("builder_roles") or []) 
 # that already nudged once (measured walk cost 52ms on the largest transcript on disk).
 stop_hook_active = bool(d.get("stop_hook_active"))
 
-cwd = os.path.realpath(d.get("cwd") or os.getcwd())  # canonicalize before file/subprocess use
+cwd = os.path.realpath(
+    d.get("cwd") or os.getcwd()
+)  # canonicalize before file/subprocess use
+
 
 def _repo_root(cwd):
     # bullet 4: same repo-root realpath containment lib/trackers.py has (defense-in-depth)
     # -- duplicated rather than imported so this file keeps working even if the lib dir is gone.
     try:
-        r = subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
-                            capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
         if r.returncode == 0 and r.stdout.strip():
             return os.path.realpath(r.stdout.strip())
     except Exception:
         pass
     return os.path.realpath(cwd)
 
-def tracker_status(path):
-    # first ~4KB is plenty for a header field; matches the template's `**Status: active**`
-    # and bare `Status: done` alike. Anchored to a real header field (line-start, case-sensitive
-    # `Status:`) so prose mentioning "status: done" mid-line can never match. No match (old
-    # trackers, migration pending) -> None -> active.
-    try:
-        with open(path, encoding="utf-8", errors="ignore") as fh:
-            head = fh.read(4000)
-    except Exception:
-        return None
-    m = re.search(r"(?m)^\*{0,2}Status:\s*\**\s*((?i:active|done|abandoned|promoted|parked))", head)
-    return m.group(1).lower() if m else None
 
 def has_resume_block(path):
-    if not os.path.isfile(path):   # rejects symlinks to FIFO/socket/dir (would hang on read)
+    if not os.path.isfile(
+        path
+    ):  # rejects symlinks to FIFO/socket/dir (would hang on read)
         return False
     try:
         with open(path, encoding="utf-8", errors="ignore") as fh:
             return re.search(r"(?m)^## Resume here", fh.read(65536)) is not None
     except Exception:
         return False
+
 
 def has_real_questions(path):
     # An empty/hollow QUESTIONS.md must not silently satisfy the gate -- require at least one
@@ -75,6 +79,7 @@ def has_real_questions(path):
         return False
     return re.search(r"(?m)^## (Q\d+|Parked)\b", head) is not None
 
+
 # opt-in: TRACKER.md at cwd root and/or plans/*/TRACKER.md, excluding worktree duplicates and
 # trackers whose header marks the pack done/abandoned/promoted/parked (closed packs never nag).
 candidates = []
@@ -87,19 +92,25 @@ except Exception:
     pass
 candidates = [c for c in candidates if "/.claude/worktrees/" not in os.path.realpath(c)]
 _root = _repo_root(cwd)
-candidates = [c for c in candidates
-              if os.path.realpath(c) == _root or os.path.realpath(c).startswith(_root + os.sep)]
+candidates = [
+    c
+    for c in candidates
+    if os.path.realpath(c) == _root or os.path.realpath(c).startswith(_root + os.sep)
+]
 # Closed packs are not candidates, but WRITING one (closing a pack is the final state update)
 # still satisfies the gate -- otherwise a session that closes its pack can never clear the nag.
-closed_reals = set(os.path.realpath(c) for c in candidates
-                   if tracker_status(c) in ("done", "abandoned", "promoted", "parked"))
+closed_reals = set(
+    os.path.realpath(c) for c in candidates if tracker_status(c) in CLOSED_STATUSES
+)
 candidates = [c for c in candidates if os.path.realpath(c) not in closed_reals]
 
-if not candidates:                      # opt-in: no active tracker -> not a plan-pack project
+if not candidates:  # opt-in: no active tracker -> not a plan-pack project
     sys.exit(0)
 
-def clean(s):                           # neutralize newline/control-char injection into model-facing text
+
+def clean(s):  # neutralize newline/control-char injection into model-facing text
     return "".join(c for c in str(s) if c.isprintable())[:80]
+
 
 # Bare `except Exception` below is INTENTIONAL and matches review-stop-gate.sh: a Stop hook must
 # never crash or exit nonzero. Any failure to read state -> stay silent, let the stop proceed.
@@ -107,29 +118,33 @@ def clean(s):                           # neutralize newline/control-char inject
 tpath = d.get("transcript_path", "")
 if not tpath or not os.path.exists(tpath):
     sys.exit(0)
-tpath = os.path.realpath(tpath)   # resolve symlinks before opening
+tpath = os.path.realpath(tpath)  # resolve symlinks before opening
 
 wrote_tracker = False
 wrote_other = False
 written = []
 written_trackers = set()
-last_tracker = None   # LAST tracker (in transcript walk order) this session wrote --
-                       # a QUESTIONS.md write maps to its pack-sibling TRACKER.md
+last_tracker = None  # LAST tracker (in transcript walk order) this session wrote --
+# a QUESTIONS.md write maps to its pack-sibling TRACKER.md
 # Only THIS repo-s real trackers (and their pack-sibling QUESTIONS.md) may satisfy the gate. A
 # basename match would let a write to any file called TRACKER.md anywhere on disk (scratchpad,
 # unrelated repo) silence the hook. QUESTIONS.md counts as a pack-state write alongside the
 # tracker itself -- same set, so the existing membership check below covers both for free.
 tracker_reals = set(os.path.realpath(c) for c in candidates)
 questions_to_tracker = {
-    os.path.realpath(os.path.join(os.path.dirname(c), "QUESTIONS.md")): os.path.realpath(c)
+    os.path.realpath(
+        os.path.join(os.path.dirname(c), "QUESTIONS.md")
+    ): os.path.realpath(c)
     for c in candidates
 }
 questions_reals = set(questions_to_tracker.keys())
 candidate_reals = tracker_reals | questions_reals
 
+
 def record(p):
     if len(written) < 50:
         written.append(p)
+
 
 # bullet 2: a Bash command is a TOPIC signal only -- it never sets wrote_tracker/
 # wrote_other (those stay Edit/Write/MultiEdit/Task-only, byte-identical nag semantics).
@@ -149,6 +164,7 @@ for _c in candidates:
         pass
     _tracker_path_variants[_real] = _variants
 
+
 def bash_topic_signal(cmd):
     if not cmd:
         return None
@@ -162,6 +178,7 @@ def bash_topic_signal(cmd):
         return None
     return next(iter(hits))
 
+
 # bullet 3: Task/Agent dispatch naming exactly one plans/<topic>/ among candidates is a
 # WEAK topic signal -- set alongside the existing wrote_other=True, never overriding a later
 # direct write (walk order already guarantees "later wins": last_tracker is just overwritten).
@@ -173,22 +190,24 @@ for _c in candidates:
     if _grandparent == "plans":
         _plan_topic_to_tracker[_parent] = _real
 
+
 def walk(node):
     global wrote_tracker, wrote_other, last_tracker
     if isinstance(node, list):
-        for x in node: walk(x)
+        for x in node:
+            walk(x)
         return
     if not isinstance(node, dict):
         return
     if node.get("type") == "tool_use":
         name = node.get("name", "")
-        inp  = node.get("input", {}) or {}
+        inp = node.get("input", {}) or {}
         if name in ("Edit", "Write", "MultiEdit"):
             fp = inp.get("file_path", "") or ""
             if fp:
                 if not os.path.isabs(fp):
                     fp = os.path.join(cwd, fp)
-                fp = os.path.realpath(fp)   # collapse .. before any containment test
+                fp = os.path.realpath(fp)  # collapse .. before any containment test
                 if fp in tracker_reals:
                     wrote_tracker = True
                     written_trackers.add(fp)
@@ -232,14 +251,19 @@ def walk(node):
     for v in node.values():
         walk(v)
 
+
 try:
     with open(tpath, encoding="utf-8", errors="ignore") as fh:
         for line in fh:
-            if len(line) > 2_000_000: continue   # guard against a single bloated line
+            if len(line) > 2_000_000:
+                continue  # guard against a single bloated line
             line = line.strip()
-            if not line: continue
-            try: walk(json.loads(line))
-            except Exception: continue
+            if not line:
+                continue
+            try:
+                walk(json.loads(line))
+            except Exception:
+                continue
 except Exception:
     sys.exit(0)
 
@@ -249,6 +273,7 @@ except Exception:
 if last_tracker:
     try:
         from resume_state import write_topic
+
         write_topic(cwd, last_tracker)
     except Exception:
         pass
@@ -265,12 +290,16 @@ missing_resume = sorted(t for t in written_trackers if not has_resume_block(t))
 if missing_resume:
     if len(missing_resume) == 1:
         rel = clean(os.path.relpath(missing_resume[0], cwd))
-        msg = (f"{rel} is missing a \"## Resume here\" heading -- add it (state + next "
-               f"action) before ending.")
+        msg = (
+            f'{rel} is missing a "## Resume here" heading -- add it (state + next '
+            f"action) before ending."
+        )
     else:
         names = [clean(os.path.relpath(t, cwd)) for t in missing_resume]
-        msg = ("These trackers are missing a \"## Resume here\" heading -- add it (state + "
-               "next action) before ending: " + ", ".join(names))
+        msg = (
+            'These trackers are missing a "## Resume here" heading -- add it (state + '
+            "next action) before ending: " + ", ".join(names)
+        )
     print(json.dumps({"decision": "block", "reason": msg}))
     sys.exit(0)
 
@@ -282,7 +311,7 @@ plans_prefix = os.path.join(cwd, "plans") + os.sep
 topics = set()
 for p in written:
     if p.startswith(plans_prefix):
-        rest = p[len(plans_prefix):]
+        rest = p[len(plans_prefix) :]
         topic = rest.split(os.sep)[0]
         if topic:
             topics.add(topic)
@@ -298,15 +327,19 @@ if len(topics) == 1:
 
 if named:
     rel = clean(os.path.relpath(named, cwd))
-    msg = (f"Update the ## Resume block in {rel} (state + next action, overwrite do not "
-           f"append) before ending.")
+    msg = (
+        f"Update the ## Resume block in {rel} (state + next action, overwrite do not "
+        f"append) before ending."
+    )
 else:
     names = [clean(os.path.relpath(c, cwd)) for c in candidates[:6]]
     extra = len(candidates) - len(names)
     namestr = ", ".join(names) + (f", +{extra} more" if extra > 0 else "")
-    msg = (f"Update the ## Resume block (state + next action, overwrite do not append) in "
-           f"the tracker matching the topic this session worked on before ending -- "
-           f"candidates: {namestr}. The hook cannot guess which topic.")
+    msg = (
+        f"Update the ## Resume block (state + next action, overwrite do not append) in "
+        f"the tracker matching the topic this session worked on before ending -- "
+        f"candidates: {namestr}. The hook cannot guess which topic."
+    )
 
 print(json.dumps({"decision": "block", "reason": msg}))
 sys.exit(0)

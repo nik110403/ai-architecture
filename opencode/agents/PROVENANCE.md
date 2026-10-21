@@ -1,12 +1,12 @@
 # Provenance
 
-Sources named `claude_improvement/bin/...` are files from the author's operator repository; they are not shipped.
+Sources named `private operator repository, bin/...` are files from the author's operator repository; they are not shipped.
 `scripts/check_collection.py` validates this file.
 
 ## opencode-agents-sync
 
 Kit file: agents/opencode-agents-sync
-Source: claude_improvement/bin/opencode-agents-sync
+Source: private operator repository, bin/opencode-agents-sync
 Source-sha256: 98d389cc96014fb34e9eb451853f56c597cec6048768804b36789016b32d15dc
 State: re-authored
 

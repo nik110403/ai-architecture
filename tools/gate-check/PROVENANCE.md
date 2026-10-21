@@ -1,6 +1,6 @@
 # Provenance
 
-Source: claude_improvement/bin/gate-check
+Source: author's private operator repository, bin/gate-check
 Source-sha256: d0a0e42a7fb7e6dc3f538939c39b6be3de084a3942d39afee4d3398fef3a5bc5
 State: adapted
 

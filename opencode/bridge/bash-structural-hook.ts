@@ -79,7 +79,7 @@ export function createBashStructural(input: any, deps: Deps = {}) {
         log(`no auto-approve: ${e?.message ?? e}`) // fail closed: the user is asked
       }
     },
-    // Git hardening for every bash command: GIT_CONFIG_COUNT/KEY_n/VALUE_n (highest precedence after -c) neutralise
+    // Git read hardening for every bash command: GIT_CONFIG_COUNT/KEY_n/VALUE_n (highest precedence after -c) neutralise
     // repo-local fsmonitor / attributes / external-diff / pager code execution on auto-approved read-only git commands.
     // Appends after any pre-existing GIT_CONFIG_COUNT entries instead of clobbering them.
     "shell.env": async (_input: any, output: any) => {
@@ -92,7 +92,9 @@ export function createBashStructural(input: any, deps: Deps = {}) {
         // attributes from an empty tree, so in-tree .gitattributes (textconv / diff driver / filter) are ignored.
         // Side effect: eol/binary/etc. attributes are ignored for OC bash git too. Residual: a repo-local
         // diff.external in .git/config and .git/info/attributes are not neutralised here.
-        const pairs: [string, string][] = [["core.fsmonitor", "false"], ["core.attributesFile", "/dev/null"], ["core.pager", "cat"], ["core.hooksPath", "/dev/null"], ["log.showSignature", "false"]]
+        // The auto-approved Git read set does not invoke hooks. Do not disable repository
+        // hooks here: this environment also reaches deliberately authorised commits/pushes.
+        const pairs: [string, string][] = [["core.fsmonitor", "false"], ["core.attributesFile", "/dev/null"], ["core.pager", "cat"], ["log.showSignature", "false"]]
         if (env.GIT_ATTR_SOURCE === undefined && process.env.GIT_ATTR_SOURCE === undefined) env.GIT_ATTR_SOURCE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
         // keys/values of the pre-existing entries come from process.env unless this plugin chain already set them
         for (let i = 0; i < base; i++) {

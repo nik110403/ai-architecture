@@ -183,8 +183,10 @@ fix_index_dir() {  # dir
   # duplicate index lines (TOCTOU) before this lock existed.
   refuse_symlinks "$index" "$index.lock" || return 3
   (( APPLY )) && { refuse_symlinks "$AUDIT_LOG" || return 3; }
-  exec {lock_fd}>>"$index.lock"   # append mode: taking the lock never truncates
-  flock -x "$lock_fd"
+   if (( APPLY )); then
+     exec {lock_fd}>>"$index.lock"   # append mode: taking the lock never truncates
+     flock -x "$lock_fd"
+   fi
 
   for f in "${files[@]}"; do
     grep -qF "]($f)" "$index" 2>/dev/null && continue   # already indexed — idempotent skip
@@ -211,8 +213,10 @@ fix_index_dir() {  # dir
     fi
   done
 
-  flock -u "$lock_fd"
-  exec {lock_fd}>&-
+   if (( APPLY )); then
+     flock -u "$lock_fd"
+     exec {lock_fd}>&-
+   fi
 }
 
 # shorten_hook_text() — derive a ≤100-char, word-boundary-safe rewrite of an existing index
@@ -276,11 +280,13 @@ shorten_index_dir() {  # dir
   (( APPLY )) && { refuse_symlinks "$AUDIT_LOG" || return 3; }
   [[ -f "$index" ]] || return 0
 
-  exec {lock_fd}>>"$index.lock"   # append mode: taking the lock never truncates
-  flock -x "$lock_fd"
+   if (( APPLY )); then
+     exec {lock_fd}>>"$index.lock"   # append mode: taking the lock never truncates
+     flock -x "$lock_fd"
+   fi
 
   local idx_pat='^- \[([^]]+)\]\(([^)]+)\) — (.*)$'
-  tmpfile="$(mktemp)"
+   (( APPLY )) && tmpfile="$(mktemp)"
   while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" =~ $idx_pat ]]; then
       title="${BASH_REMATCH[1]}"; file="${BASH_REMATCH[2]}"; hook="${BASH_REMATCH[3]}"
@@ -304,18 +310,20 @@ shorten_index_dir() {  # dir
         fi
       fi
     fi
-    printf '%s\n' "$line" >>"$tmpfile"
+     (( APPLY )) && printf '%s\n' "$line" >>"$tmpfile"
   done <"$index"
 
   if (( APPLY && changed )); then
     mv "$tmpfile" "$index"
     audit "shorten-index" "$index" "$ACTOR"
-  else
-    rm -f "$tmpfile"
+   elif (( APPLY )); then
+     rm -f "$tmpfile"
   fi
 
-  flock -u "$lock_fd"
-  exec {lock_fd}>&-
+   if (( APPLY )); then
+     flock -u "$lock_fd"
+     exec {lock_fd}>&-
+   fi
 }
 
 fix_index_main() {

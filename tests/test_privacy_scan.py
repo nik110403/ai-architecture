@@ -22,7 +22,9 @@ class PrivacyScanTests(unittest.TestCase):
         )
 
     def test_clean_tree(self):
-        result = self.run_scan({"a.md": "Nothing private here.\nAIer and layout are fine.\n"})
+        result = self.run_scan(
+            {"a.md": "Nothing private here.\nFictional project and layout notes.\n"}
+        )
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_planted_path_reported(self):
@@ -31,17 +33,49 @@ class PrivacyScanTests(unittest.TestCase):
         self.assertIn("sub/a.md:2:", result.stdout)
 
     def test_token_prefixes_and_case(self):
-        for text in ("ses" + "_abc123", "chg" + "-0f3a", "AI" + "ER", "La" + "ya"):
+        for text in ("ses" + "_abc123", "chg" + "-0f3a", "SES" + "_abc123"):
             self.assertEqual(self.run_scan({"a.txt": text}).returncode, 1, text)
+
+    def test_generic_rules_only(self):
+        import runpy
+
+        terms = runpy.run_path(str(SCAN))["TERMS"]
+        self.assertEqual(len(terms), 4)
+        self.assertEqual(
+            {label for label, _ in terms},
+            {"/" + "home" + "/", "10.0." + "0.", "ses" + "_", "chg" + "-"},
+        )
+
+    def test_private_address_reported(self):
+        result = self.run_scan({"a.txt": "endpoint " + "10.0." + "0.7"})
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(result.stdout.strip(), "a.txt:1: " + "10.0." + "0.")
 
     def test_binary_skipped(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         (Path(temp.name) / "b.bin").write_bytes(b"\0" + ("/" + "home" + "/x").encode())
         result = subprocess.run(
-            [sys.executable, "-B", str(SCAN), "--root", temp.name], capture_output=True, text=True
+            [sys.executable, "-B", str(SCAN), "--root", temp.name],
+            capture_output=True,
+            text=True,
         )
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_invalid_root_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            file_root = Path(temp) / "file.txt"
+            file_root.write_text("ordinary text", encoding="utf-8")
+            for root in (Path(temp) / "missing", file_root):
+                with self.subTest(root=root.name):
+                    result = subprocess.run(
+                        [sys.executable, "-B", str(SCAN), "--root", str(root)],
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn("root is not a directory", result.stderr)
+                    self.assertNotIn("Traceback", result.stderr)
 
 
 if __name__ == "__main__":

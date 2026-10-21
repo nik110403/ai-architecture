@@ -1,6 +1,6 @@
 # Licences for ai-architecture-gates
 
-- Code, tests and configuration in this plugin: MIT, same as the main collection. See the repository `LICENSE`.
+- Code, tests and configuration in this plugin: MIT, same as the main collection. A copy of the repository notice is included in this plugin's `LICENSE`.
 - `README.md` and this file are documentation, covered like the collection's other docs.
 
 ## Confirmation tier of the destructive-command guard

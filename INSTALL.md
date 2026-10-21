@@ -1,6 +1,6 @@
 # Install
 
-This release is `0.4.1-preview`. There are three separate things you can install, and only the first
+This release is `0.4.2-preview`. There are three separate things you can install, and only the first
 is on by default in the sense that it adds instructions rather than behaviour. What each capability does and
 does not cover is in [CAPABILITIES.md](CAPABILITIES.md); what has been tested is in [COVERAGE.md](COVERAGE.md).
 
@@ -129,6 +129,14 @@ fi
 For routing, after the collision check also copy `scripts/route.py` to `scripts/` and
 `templates/route-report.md` to `templates/`, refusing each collision. Do not assume a
 single copied skill directory contains collection-root utilities.
+
+For `plan-pack`, follow the selective-adoption dependency list in
+[`skills/plan-pack/SKILL.md`](skills/plan-pack/SKILL.md): copy the planning templates for
+your tier, `tools/plancheck/plancheck` and `rules/stakes-dial.md`, preserving root-relative
+paths or adapting the references. T1 runs serially from its tracker; T2+ also needs
+`exec-pack` and configured builder/checker roles, T3 needs the tribunal skill and its
+dependencies, and GATES users need `gate-check`. No automatic bundle installation or
+cross-harness role import is provided.
 
 For Codex replace `DEST` with `.agents/skills/planning` and the parent passed to
 `mkdir` with `.agents/skills`; for OpenCode use `.opencode/skills/planning` and

@@ -20,6 +20,8 @@
 // CLAUDE_PROJECT_DIR and the cwd, else the default is used / no log is written.
 // ROTATION_SEED=<text> (deterministic draws for tests/replays) is honoured only together
 // with ROTATION_TEST=1; default is node:crypto randomInt.
+// Routing only: mutate args, never grant permission or start workers. Existing harness
+// policy remains authoritative; brief headers and caller identity are not permission grants.
 import { createHash, randomInt } from "node:crypto"
 import { closeSync, constants, fstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeSync } from "node:fs"
 import path from "node:path"

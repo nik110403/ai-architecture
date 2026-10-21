@@ -1,10 +1,10 @@
 # Provenance: loop-sync
 
-Source: claude_improvement/bin/loop-sync
+Source: author's private operator repository, bin/loop-sync
 Source-sha256: 2a74f484bfe5249cb55b420c410ce13ca8a47f5ee8cded2fbc58ab8fe03f830e
 State: re-authored
 
-Also derived from claude_improvement/bin/tests/test-loop-sync-strict.sh (tests/run.sh) and the
+Also derived from that repository's bin/tests/test-loop-sync-strict.sh (tests/run.sh) and the
 column layout of the author's LOOPS.md registry (format only; no rows copied).
 
 ## Deltas

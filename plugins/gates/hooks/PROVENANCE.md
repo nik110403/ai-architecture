@@ -4,7 +4,7 @@ One section per ported unit. Each section uses the `Field: value` lines of the c
 provenance convention (`Source`, `Source-sha256` = sha256 of the source file as read when it was
 ported, `State` = verbatim | adapted | re-authored) followed by a `Deltas:` list. 
 `scripts/check_collection.py` validates this file. Sources named
-`~/.claude/...` are an author's installed hook files; `claude_improvement/bin/...` are files from the
+`~/.claude/...` are an author's installed hook files; `private operator repository, bin/...` names files from the
 author's operator repository. Neither is shipped.
 
 Hooks that were bash scripts embedding a single `python3 -c '...'` program were extracted into
@@ -19,13 +19,15 @@ Source-sha256: eb5c59541bf30610b7250e9745e315b6cd45f399e2aa62132c89227c11a9060a
 State: adapted
 
 Deltas:
-- rule engine (heredoc stripping, de-escaping, command-position matching, ASK tier, protected-data and secret-read checks, crash-to-deny wrapper) is the source program text; no check was relaxed
+- baseline rule engine (heredoc stripping, de-escaping, command-position matching, protected-data and secret-read checks, crash-to-deny wrapper) follows the source program; no check was relaxed
 - personal protected-root inventory replaced by user-configured `protected_roots` / `protected_containers` / `protected_names`; the built-in floor keeps the secret stores (ssh, gnupg, password-store) and the standard tool credential files
 - default HOME fallback replaced by the process HOME (no hard-coded user directory)
 - added user-scope `deny_patterns` / `ask_patterns` (same length, nested-quantifier and time-budget safety as the project file); the per-project destructive-patterns file stays additive-only
 - missing `python3` now DENIES (wrapper `bash-destructive-guard.sh`); the source logged and let the command pass
 - header comments dropped: the incident note, the dated change log and the list of known out-of-scope evasions; limits are described generically in README.md
 - ASK-tier pattern list attribution moved to LICENSES.md
+- additional Git/SQL ASK rules adapted from a pinned staged guard (source SHA-256 `d23e2123a91702edd2043c71a119c801ca59fca86cf1c630cbc99b4fa0dfa013`): clean except dry-run, forced branch deletion (case-sensitive `-D`), stash clear/drop, destructive push refspecs/deletion, reflog expire/delete, and destructive SQL in command/execute/eval arguments
+- the additional rules are literal-text tripwires, not a Git option/refspec parser, SQL parser, sandbox, or substitute for server-side branch protection; existing public parsing, resource budgets, configuration validation and DENY precedence are retained rather than replaced by the staged source
 
 ## edit-budget-gate
 
@@ -74,7 +76,7 @@ Deltas:
 ## clean-state-check
 
 Kit file: hooks/clean-state-check.py
-Source: claude_improvement/bin/hooks/clean-state-check.sh
+Source: private operator repository, bin/hooks/clean-state-check.sh
 Source-sha256: d070b740ddfb5f0122222db03d0c4b4449cc3328a0a69c0db7cff697fb28eec6
 State: adapted
 
@@ -129,18 +131,19 @@ Deltas:
 ## tests/run_destructive.py + tests/fixtures/destructive-guard.json
 
 Kit file: tests/run_destructive.py
-Source: claude_improvement/bin/tests/destructive-guard-runner.py
+Source: private operator repository, bin/tests/destructive-guard-runner.py
 Source-sha256: f5c9864fa71b2f51b268905c06a56e0bbf1b2125f0a5035600966ca3e31813ef
 State: adapted
 
 Deltas:
 - runner points at the plugin hook and a test config instead of an installed hook; fixture commands use `@HOME@` instead of a real home path; personal folder names replaced by generic ones (`vault`, `workspace`, ...) that the test config marks as protected
-- fixture table ported 1:1 (143 cases from claude_improvement/bin/tests/fixtures/destructive-guard.json) plus 9 added cases; latency limit relaxed to a sanity bound on wall time
+- fixture table ported 1:1 (143 cases from the private operator repository's bin/tests/fixtures/destructive-guard.json) plus 9 added cases; latency limit relaxed to a sanity bound on wall time
+- added all 35 ASK/near-miss cases from the pinned staged test (source SHA-256 `95bc9e8150833301ef6e6e62b689d6c46ee4840d8165893cd068dc389a4b9293`), plus 10 cases covering long flags, SQL schema deletion, DENY precedence and heredoc data; commands remain JSON input only, and the existing rc-checked subprocess helper is retained
 
 ## tests/run_hooks.py, tests/run_config_scope.py, tests/run.sh
 
 Kit file: tests/
-Source: claude_improvement/bin/tests/test-destructive-guard.sh
+Source: private operator repository, bin/tests/test-destructive-guard.sh
 Source-sha256: 8dba6849dd7950d90054739472473a59d041762229b331aada7a1f9404082641
 State: re-authored
 

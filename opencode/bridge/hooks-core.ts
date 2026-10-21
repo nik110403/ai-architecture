@@ -307,6 +307,7 @@ export function claudePayload(tool: string, args: any, cwd: string, sessionID: s
     const sourcePaths = tool === "apply_patch" ? patchPaths(args?.patchText ?? args?.patch_text) : [args?.filePath ?? args?.file_path ?? args?.path]
     const guardedPaths = sourcePaths.map(source => normalizedPath(source, cwd))
     const extra: Record<string, unknown> = {}
+    if (tool === "apply_patch") extra.content = args?.patchText ?? args?.patch_text
     for (const key of ["content", "old_string", "new_string"]) {
       const value = args?.[key] ?? args?.[{ old_string: "oldString", new_string: "newString" }[key] ?? key]
       if (typeof value === "string") extra[key] = value
@@ -589,18 +590,18 @@ export const createGatesBridge = async ({ client, directory }: any, configOverri
           const entry = matched[index]
           const decision = decideGuard(results[index], entry.failClosed, hookBasename(entry.command))
           if (!decision.allow) {
-            await appendEvent(input.sessionID, { type: "tool_use", name: payload.tool_name, input: guardedPayload.tool_input, denied: true, reason: decision.reason })
+            await appendEvent(input.sessionID, { type: "tool_use", id: input.callID, name: payload.tool_name, input: guardedPayload.tool_input, denied: true, reason: decision.reason })
             throw new Error(decision.reason)
           }
         }
       }
-      await appendEvent(input.sessionID, { type: "tool_use", name: payload.tool_name, input: payload.tool_input, attempted: true })
+      await appendEvent(input.sessionID, { type: "tool_use", id: input.callID, name: payload.tool_name, input: payload.tool_input, attempted: true })
     },
     "tool.execute.after": async (input: any, output: any) => {
-      if (PATH_SCOPED_TOOLS.includes(input.tool)) {
+      if (PATH_SCOPED_TOOLS.includes(input.tool) || input.tool === "task") {
         const payload = claudePayload(input.tool, input.args, directory, input.sessionID, guardAgentType(input.agent))
         const failed = output?.error || output?.failed === true || output?.success === false || output?.status === "error"
-        await appendEvent(input.sessionID, { type: "tool_use", name: payload.tool_name, input: payload.tool_input, succeeded: !failed, ...(failed ? { failure: "tool result reported failure" } : {}) })
+        await appendEvent(input.sessionID, { type: "tool_use", id: input.callID, name: payload.tool_name, input: payload.tool_input, succeeded: !failed, ...(failed ? { failure: "tool result reported failure" } : {}) })
       }
       // PostToolUse hooks (none ship in gates today) may add context; they never block.
       const entries = config.PostToolUse || []

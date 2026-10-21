@@ -40,10 +40,20 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_record_rejects_single_hash_heading_in_unit(self):
-        self.corrupt("opencode/bridge/PROVENANCE.md", "## plugin.ts\n", "# plugin.ts\n", "unit headings")
+        self.corrupt(
+            "opencode/bridge/PROVENANCE.md",
+            "## plugin.ts\n",
+            "# plugin.ts\n",
+            "unit headings",
+        )
 
     def test_record_rejects_triple_hash_heading_in_unit(self):
-        self.corrupt("opencode/bridge/PROVENANCE.md", "## plugin.ts\n", "### plugin.ts\n", "unit headings")
+        self.corrupt(
+            "opencode/bridge/PROVENANCE.md",
+            "## plugin.ts\n",
+            "### plugin.ts\n",
+            "unit headings",
+        )
 
     def test_record_requires_unit_heading_not_substring(self):
         self.corrupt(
@@ -193,7 +203,7 @@ class CollectionTests(unittest.TestCase):
 
     def test_manifest_bad_version(self):
         self.corrupt(
-            ".claude-plugin/plugin.json", "0.4.1-preview", "nonsense", "name/version"
+            ".claude-plugin/plugin.json", "0.4.2-preview", "nonsense", "name/version"
         )
 
     def test_manifest_duplicate_key(self):
@@ -302,7 +312,6 @@ class CollectionTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("home-directory", result.stderr)
 
-
     GATES = "plugins/gates/hooks/PROVENANCE.md"
     UNIT = "State: adapted\n"
 
@@ -320,7 +329,9 @@ class CollectionTests(unittest.TestCase):
         root = self.copied()
         path = root / self.GATES
         text = path.read_text(encoding="utf-8")
-        path.write_text(text.replace("Source-sha256: ", "Source-sha256: zz", 1), encoding="utf-8")
+        path.write_text(
+            text.replace("Source-sha256: ", "Source-sha256: zz", 1), encoding="utf-8"
+        )
         self.assertIn("Source-sha256", self.run_check(root).stderr)
 
     def test_gates_provenance_without_deltas_rejected(self):
@@ -332,7 +343,9 @@ class CollectionTests(unittest.TestCase):
 
     def test_gates_provenance_unlisted_hook_rejected(self):
         root = self.copied()
-        (root / "plugins/gates/hooks/extra-hook.py").write_text("pass\n", encoding="utf-8")
+        (root / "plugins/gates/hooks/extra-hook.py").write_text(
+            "pass\n", encoding="utf-8"
+        )
         self.assertIn("does not account for", self.run_check(root).stderr)
 
     def test_opencode_provenance_malformed_rejected(self):

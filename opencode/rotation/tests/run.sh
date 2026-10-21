@@ -9,9 +9,11 @@ echo "== Claude Code hook =="
 bash "$ROOT/plugins/gates/hooks/rotation/tests/test-model-rotate.sh" || rc=1
 echo "== OpenCode module =="
 if command -v bun >/dev/null 2>&1; then
-  bun "$HERE/rotation.test.ts" || rc=1
+	bun "$HERE/rotation.test.ts" || rc=1
 else
-  echo "NOT RUN: the OpenCode module tests need bun (not found)"
+	echo "NOT RUN: the OpenCode module tests need bun (not found)"
+	echo "ROTATION TESTS INCOMPLETE"
+	exit 1
 fi
 if [ "$rc" -eq 0 ]; then echo "ROTATION TESTS PASSED"; else echo "ROTATION TESTS FAILED"; fi
 exit "$rc"

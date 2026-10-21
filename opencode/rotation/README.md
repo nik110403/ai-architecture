@@ -11,6 +11,10 @@ from the role's configured model, the call's `subagent_type` becomes `<role>--<m
 (for `provider/model-b` and role `builder`: `builder--provider-model-b`). If the drawn model is the role's own model,
 or the variant is not defined in your config or its `model` is not the drawn one, the call is left unchanged.
 
+Rotation changes arguments only. It emits no permission decision, preserves existing policy fields,
+and never starts workers through the plugin client or an external command. The harness's permission
+checks still decide whether the rewritten call may run; routing headers and caller identity grant no permission.
+
 | Path | What it is |
 | --- | --- |
 | `model-rotate.ts` | The module (`createModelRotate`), no dependencies beyond `node:` built-ins. |

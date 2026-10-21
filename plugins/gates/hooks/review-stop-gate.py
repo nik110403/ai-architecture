@@ -10,12 +10,16 @@ stop_hook_active makes it nudge once per cycle. Only edits that actually succeed
 (tool_use correlated with its tool_result); unresolved calls count as mutated (fail toward review).
 Reads the session transcript JSONL, whose format can change between Claude Code versions.
 """
+
 import sys, json, os, re, time
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import gates_config
+
 d = gates_config.init("stop")  # payload first; unparseable -> block
 CFG = gates_config.load()
 gates_config.warn_if_invalid()  # invalid user config: defaults stay in force, say so
+
 
 def _emit(*a, **k):
     pass  # telemetry is not part of this plugin
@@ -23,7 +27,7 @@ def _emit(*a, **k):
 
 _sid = d.get("session_id")
 
-if d.get("stop_hook_active"):          # already nudged this stop-cycle -> let it stop
+if d.get("stop_hook_active"):  # already nudged this stop-cycle -> let it stop
     _emit("allow", "already_nudged_this_cycle", session=_sid)
     sys.exit(0)
 
@@ -31,28 +35,60 @@ tpath = d.get("transcript_path", "")
 if not tpath or not os.path.exists(tpath):
     _emit("allow", "no_transcript_available", session=_sid)
     sys.exit(0)
-tpath = os.path.realpath(tpath)   # resolve symlinks before opening
+tpath = os.path.realpath(tpath)  # resolve symlinks before opening
 
-def clean(s):                     # neutralize newline/CR injection into model-facing text
+
+def clean(s):  # neutralize newline/CR injection into model-facing text
     return str(s).replace("\n", " ").replace("\r", " ")[:200]
 
-UI_EXTS   = {".css",".scss",".tsx",".jsx",".vue",".svelte",".html",".astro"}
-CODE_EXTS = {".php",".js",".jsx",".ts",".tsx",".mjs",".cjs",".py",".rb",".go",".java",
-             ".cs",".sql",".sh",".bash",".vue",".svelte",".html",".htm",".env",".conf"}
-SEC_PAT = re.compile(r"authenticat|authoriz|\blogin\b|\bsession\b|password|\btoken\b|\bsql\b|"
-                     r"sanitiz|csrf|\bjwt\b|\bupload\b|\bquery\b|secret|credential", re.I)
 
-# tool_use_id -> (name, input); populated from "assistant" lines only.
+UI_EXTS = {".css", ".scss", ".tsx", ".jsx", ".vue", ".svelte", ".html", ".astro"}
+CODE_EXTS = {
+    ".php",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+    ".cjs",
+    ".py",
+    ".rb",
+    ".go",
+    ".java",
+    ".cs",
+    ".sql",
+    ".sh",
+    ".bash",
+    ".vue",
+    ".svelte",
+    ".html",
+    ".htm",
+    ".env",
+    ".conf",
+}
+SEC_PAT = re.compile(
+    r"authenticat|authoriz|\blogin\b|\bsession\b|password|\btoken\b|\bsql\b|"
+    r"sanitiz|csrf|\bjwt\b|\bupload\b|\bquery\b|secret|credential",
+    re.I,
+)
+
+# tool_use_id -> (name, input); Claude wrappers or flat OpenCode bridge events.
 tool_uses = {}
 # tool_use_id -> True once a paired tool_result (from a "user" line) is seen with
 # is_error, OR the line itself carries toolDenialKind (Claude Code's own signal for a
 # PreToolUse-hook-denied call, e.g. {"content":[...],"is_error":true}} + top-level
 # "toolDenialKind":"permission-rule" on the enclosing line).
 tool_denied_or_errored = set()
+# Only ID-bearing bridge reviewer calls require an explicit successful terminal.
+# Claude wrappers and legacy ID-less bridge logs keep their existing semantics.
+bridge_review_calls = set()
+bridge_succeeded = set()
+
 
 def collect_uses(node):
     if isinstance(node, list):
-        for x in node: collect_uses(x)
+        for x in node:
+            collect_uses(x)
         return
     if not isinstance(node, dict):
         return
@@ -63,9 +99,11 @@ def collect_uses(node):
     for v in node.values():
         collect_uses(v)
 
+
 def collect_results(node, line_denied):
     if isinstance(node, list):
-        for x in node: collect_results(x, line_denied)
+        for x in node:
+            collect_results(x, line_denied)
         return
     if not isinstance(node, dict):
         return
@@ -76,68 +114,116 @@ def collect_results(node, line_denied):
     for v in node.values():
         collect_results(v, line_denied)
 
+
 with open(tpath, encoding="utf-8", errors="ignore") as fh:
-    for line in fh:
-        if len(line) > 2_000_000: continue   # guard against a single bloated line
+    for line_number, line in enumerate(iter(lambda: fh.readline(2_000_001), "")):
+        if len(line) > 2_000_000:
+            # Never silently lose a mutation/reviewer outcome, and never allocate
+            # or parse an unbounded record. Its contents cannot safely be known.
+            print(
+                json.dumps(
+                    {
+                        "decision": "block",
+                        "reason": "Review state is unknown: transcript record exceeds the bounded reader limit. Resolve the oversized record before finishing review.",
+                    }
+                )
+            )
+            sys.exit(0)
         line = line.strip()
-        if not line: continue
-        try: j = json.loads(line)
-        except Exception: continue
+        if not line:
+            continue
+        try:
+            j = json.loads(line)
+        except Exception:
+            continue
         t = j.get("type")
         if t == "assistant":
             collect_uses(j)
         elif t == "user":
             collect_results(j, "toolDenialKind" in j)
+        elif t == "tool_use":
+            # OpenCode emits attempted/denied/terminal records for the same callID.
+            # Keep unresolved mutations review-pending, just like Claude tool_use.
+            # Old logs without IDs cannot be correlated: retain their unresolved intent.
+            tid = ("bridge", j.get("id") or f"line-{line_number}")
+            tool_uses[tid] = (j.get("name", ""), j.get("input", {}) or {})
+            if j.get("id"):
+                bridge_review_calls.add(tid)
+                if j.get("succeeded") is True:
+                    bridge_succeeded.add(tid)
+            if j.get("denied") or j.get("succeeded") is False:
+                tool_denied_or_errored.add(tid)
 
 ui_edited = design_ran = sec_edited = sec_ran = False
 ui_files, sec_files = set(), set()
 
 for tid, (name, inp) in tool_uses.items():
     denied = tid in tool_denied_or_errored
-    if name in ("Edit", "Write", "MultiEdit"):
+    if name in ("Edit", "Write", "MultiEdit", "Patch"):
         if denied:
             continue  # attempted but never actually mutated the file
         old_s, new_s = inp.get("old_string"), inp.get("new_string")
         if name == "Edit" and old_s is not None and old_s == new_s:
             continue  # true no-op edit -- succeeded, but nothing was mutated
-        fp = inp.get("file_path", "") or ""
-        ext = os.path.splitext(fp)[1].lower()
-        if ext in UI_EXTS:
-            ui_edited = True; ui_files.add(fp)
-        if ext in CODE_EXTS:
-            payload = " ".join(str(inp.get(k, "")) for k in ("new_string","content","command"))
-            if SEC_PAT.search(fp + " " + payload):
-                sec_edited = True; sec_files.add(fp)
+        paths = inp.get("patch_paths") if name == "Patch" else None
+        for fp in paths or [inp.get("file_path", "") or ""]:
+            ext = os.path.splitext(fp)[1].lower()
+            if ext in UI_EXTS:
+                ui_edited = True
+                ui_files.add(fp)
+            if ext in CODE_EXTS:
+                payload = " ".join(
+                    str(inp.get(k, "")) for k in ("new_string", "content", "command")
+                )
+                if SEC_PAT.search(fp + " " + payload):
+                    sec_edited = True
+                    sec_files.add(fp)
     elif name in ("Task", "Agent"):
         if denied:
             continue  # dispatch attempted but never actually ran
         # Exact subagent_type match only — a mere mention of the agent name in a
         # description/prompt must NOT satisfy the gate (anti-spoof, OWASP ASI01).
         sub = gates_config.trusted_role(inp.get("subagent_type", ""))
-        if sub == gates_config.role(CFG.get("design_review_role") or "design-critic"): design_ran = True
-        if sub == gates_config.role(CFG.get("security_review_role") or "security-reviewer"): sec_ran = True
+        review_succeeded = tid not in bridge_review_calls or tid in bridge_succeeded
+        if review_succeeded and sub == gates_config.role(
+            CFG.get("design_review_role") or "design-critic"
+        ):
+            design_ran = True
+        if review_succeeded and sub == gates_config.role(
+            CFG.get("security_review_role") or "security-reviewer"
+        ):
+            sec_ran = True
         # Subagent edits are written to a SEPARATE transcript that this hook never
         # reads, so delegated UI work is invisible to the ui_edited check above.
         # Treat dispatching the design builder as UI-editing intent, else the whole
         # delegated path (the default per CLAUDE.md) escapes review entirely.
         if sub in [gates_config.role(r) for r in (CFG.get("ui_builder_roles") or [])]:
-            ui_edited = True; ui_files.add("(delegated to a UI builder)")
+            ui_edited = True
+            ui_files.add("(delegated to a UI builder)")
 
 reasons = []
 if ui_edited and not design_ran:
     fl = ", ".join(sorted(clean(x) for x in ui_files)) or "UI file(s)"
-    reasons.append(f"UI file(s) were edited ({fl}) but the {gates_config.role(CFG.get('design_review_role') or 'design-critic')} agent never ran. "
-                   f"Dispatch that read-only agent on the affected page(s) before finishing.")
+    reasons.append(
+        f"UI file(s) were edited ({fl}) but the {gates_config.role(CFG.get('design_review_role') or 'design-critic')} agent never ran. "
+        f"Dispatch that read-only agent on the affected page(s) before finishing."
+    )
 if sec_edited and not sec_ran:
     fl = ", ".join(sorted(clean(x) for x in sec_files)) or "security-sensitive file(s)"
-    reasons.append(f"Security-sensitive code was edited ({fl}) but the {gates_config.role(CFG.get('security_review_role') or 'security-reviewer')} agent "
-                   f"never ran. Dispatch that read-only agent on the diff before finishing.")
+    reasons.append(
+        f"Security-sensitive code was edited ({fl}) but the {gates_config.role(CFG.get('security_review_role') or 'security-reviewer')} agent "
+        f"never ran. Dispatch that read-only agent on the diff before finishing."
+    )
 
 if reasons:
     # Ledger gets counts only — no persistent index of credential-keyword file
     # paths in the cross-project ledger.
-    _emit("deny", f"missing_review ui_files={len(ui_files)} sec_files={len(sec_files)}", session=_sid)
-    print(json.dumps({"decision":"block","reason":" ".join(reasons)}))
+    _emit(
+        "deny",
+        f"missing_review ui_files={len(ui_files)} sec_files={len(sec_files)}",
+        session=_sid,
+    )
+    print(json.dumps({"decision": "block", "reason": " ".join(reasons)}))
 else:
     _emit("allow", "no_missing_review", session=_sid)
 sys.exit(0)

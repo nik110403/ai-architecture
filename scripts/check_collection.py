@@ -33,9 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILLS = set(
     "planning execution delegation context continuity review evaluation workspace design research safety maintenance routing convergence lifecycle discovery operations specialist-journeys".split()
 )
-ROLES = set(
-    "builder researcher security-reviewer design-critic".split()
-)
+ROLES = set("builder researcher security-reviewer design-critic".split())
 # Ported units (a directory with a PROVENANCE.md) are checked through `ported()`; these are the
 # names expected to be present, so the totals below are real inventories, not a stale number.
 PORTED = {
@@ -73,7 +71,7 @@ ROOT_DIRS = {
 }
 HOME_MARK = "/" + "home" + "/"  # built at runtime so the privacy scan stays clean
 STATES = {"verbatim", "adapted", "re-authored"}
-VERSION = "0.4.1-preview"
+VERSION = "0.4.2-preview"
 
 
 def fail(message):
@@ -212,7 +210,9 @@ def manifests():
     ):
         fail("marketplace metadata version/description mismatch")
     gates = json.loads(
-        safe(ROOT / "plugins/gates/.claude-plugin/plugin.json").read_text(encoding="utf-8"),
+        safe(ROOT / "plugins/gates/.claude-plugin/plugin.json").read_text(
+            encoding="utf-8"
+        ),
         object_pairs_hook=unique_keys,
     )
     if not isinstance(gates, dict) or set(gates) != set(plugin):
@@ -222,7 +222,11 @@ def manifests():
     attribution(gates["author"])
     expected = [
         {"name": plugin["name"], "version": plugin["version"], "source": "./"},
-        {"name": gates["name"], "version": gates["version"], "source": "./plugins/gates"},
+        {
+            "name": gates["name"],
+            "version": gates["version"],
+            "source": "./plugins/gates",
+        },
     ]
     if market["plugins"] != expected:
         fail("marketplace plugin inventory mismatch")
@@ -271,10 +275,14 @@ def provenance(path):
     text = safe(path).read_text(encoding="utf-8")
     if HOME_MARK in text:
         fail(f"provenance containing a home-directory path: {path}")
-    sections = [p for p in re.split(r"^(?=## )", text, flags=re.M) if p.startswith("## ")]
-    sections = [p for p in sections if not re.match(r"## (Deltas|Not ported|Notes)[ \t]*\n", p)]
+    sections = [
+        p for p in re.split(r"^(?=## )", text, flags=re.M) if p.startswith("## ")
+    ]
+    sections = [
+        p for p in sections if not re.match(r"## (Deltas|Not ported|Notes)[ \t]*\n", p)
+    ]
     if any(re.search(r"^Source: *\S", p, re.M) for p in sections):
-        if re.search(r"^(#|###+) ", text[text.index("## "):], re.M):
+        if re.search(r"^(#|###+) ", text[text.index("## ") :], re.M):
             fail(f"multi-unit provenance may only use '## ' unit headings: {path}")
         for unit in sections:  # multi-unit: every section is a unit
             provenance_unit(unit, path)
@@ -284,7 +292,9 @@ def provenance(path):
 
 def provenance_unit(text, path):
     fields = {}
-    for key, value in re.findall(r"^(Source|Source-sha256|State): *(.*?) *$", text, re.M):
+    for key, value in re.findall(
+        r"^(Source|Source-sha256|State): *(.*?) *$", text, re.M
+    ):
         fields.setdefault(key, value)
     source = fields.get("Source", "")
     if not source or HOME_MARK in text:
@@ -300,7 +310,9 @@ def provenance_unit(text, path):
         b.strip().lower().rstrip(".") != "none"
         for b in re.findall(r"^\s*[-*] +(\S.*)$", match.group(1), re.M)
     ):
-        fail(f"provenance State {fields['State']} needs at least one non-'none' delta: {path}")
+        fail(
+            f"provenance State {fields['State']} needs at least one non-'none' delta: {path}"
+        )
 
 
 def ported(directory):
@@ -310,7 +322,9 @@ def ported(directory):
     record = "PROVENANCE.txt" if directory == "agents" else "PROVENANCE.md"
     for entry in base.iterdir():
         if directory == "agents" and (entry / "PROVENANCE.md").exists():
-            fail(f"agents/{entry.name}/PROVENANCE.md would load as an agent; name it PROVENANCE.txt")
+            fail(
+                f"agents/{entry.name}/PROVENANCE.md would load as an agent; name it PROVENANCE.txt"
+            )
         if entry.is_dir() and (entry / record).exists():
             provenance(entry / record)
             names.add(entry.name)
@@ -324,7 +338,10 @@ def ported(directory):
 # Provenance record -> files it must account for (each file name has to appear in the record).
 RECORDS = {
     "plugins/gates/hooks/PROVENANCE.md": ("plugins/gates/hooks", "*.py", "*.sh"),
-    "plugins/gates/hooks/rotation/PROVENANCE.md": ("plugins/gates/hooks/rotation", "*.py"),
+    "plugins/gates/hooks/rotation/PROVENANCE.md": (
+        "plugins/gates/hooks/rotation",
+        "*.py",
+    ),
     "opencode/bridge/PROVENANCE.md": ("opencode/bridge", "*.ts"),
     "opencode/rotation/PROVENANCE.md": ("opencode/rotation", "*.ts"),
     "opencode/agents/PROVENANCE.md": ("opencode/agents", "opencode-agents-sync"),
@@ -339,20 +356,31 @@ def records():
             fail(f"missing provenance record: {record}")
         provenance(path)
         text = path.read_text(encoding="utf-8")
-        units = set()  # names a "## ..." heading stands for: whole tokens, their basename and stem
+        units = (
+            set()
+        )  # names a "## ..." heading stands for: whole tokens, their basename and stem
         for heading in re.findall(r"^## (.+?)[ \t]*$", text, re.M):
             for token in re.split(r"[\s,+]+", heading):
                 units |= {token, Path(token).name, Path(token).stem}
-        multi = bool(re.search(r"^## .*\n(?:.*\n)*?Source: *\S", text, re.M)) and bool(units)
+        multi = bool(re.search(r"^## .*\n(?:.*\n)*?Source: *\S", text, re.M)) and bool(
+            units
+        )
         for pattern in patterns:
             for item in (ROOT / directory).glob(pattern):
                 if not item.is_file():
                     continue
                 if multi and item.name not in units and item.stem not in units:
-                    fail(f"provenance record does not account for {item.relative_to(ROOT)} (no '## {item.name}' unit heading): {record}")
+                    fail(
+                        f"provenance record does not account for {item.relative_to(ROOT)} (no '## {item.name}' unit heading): {record}"
+                    )
                 if item.name not in text:
-                    fail(f"provenance record does not account for {item.relative_to(ROOT)}: {record}")
-    for path in (*(ROOT / "plugins").rglob("PROVENANCE.md"), *(ROOT / "opencode").rglob("PROVENANCE.md")):
+                    fail(
+                        f"provenance record does not account for {item.relative_to(ROOT)}: {record}"
+                    )
+    for path in (
+        *(ROOT / "plugins").rglob("PROVENANCE.md"),
+        *(ROOT / "opencode").rglob("PROVENANCE.md"),
+    ):
         if str(path.relative_to(ROOT)) not in RECORDS:
             provenance(path)
 
@@ -368,7 +396,11 @@ def main():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     if "assets/banner-light.svg" not in "\n".join(readme.splitlines()[:15]):
         fail("README banner missing from first 15 lines")
-    if re.search(r"sanitized|T[0-9] release|candidate|NOT PUBLISHED|staged|" + HOME_MARK, readme, re.I):
+    if re.search(
+        r"sanitized|T[0-9] release|candidate|NOT PUBLISHED|staged|" + HOME_MARK,
+        readme,
+        re.I,
+    ):
         fail("README contains internal status wording")
     if not (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License\n"):
         fail("LICENSE must start with 'MIT License'")
@@ -388,12 +420,14 @@ def main():
         ):
             if f"## {heading}\n" not in body:
                 fail(f"incomplete skill: {name}")
-    if {p.name for p in (ROOT / "templates").iterdir()} - port["templates"] != TEMPLATES:
+    if {p.name for p in (ROOT / "templates").iterdir()} - port[
+        "templates"
+    ] != TEMPLATES:
         fail("template inventory mismatch")
     for directory, expected in (("agents", ROLES), ("commands", COMMANDS)):
-        if {p.name for p in (ROOT / directory).iterdir()} - port.get(directory, set()) != {
-            f"{n}.md" for n in expected
-        }:
+        if {p.name for p in (ROOT / directory).iterdir()} - port.get(
+            directory, set()
+        ) != {f"{n}.md" for n in expected}:
             fail(f"{directory} inventory mismatch")
         for name in expected:
             path = ROOT / directory / f"{name}.md"

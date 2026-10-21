@@ -102,6 +102,24 @@ await test("only subagent_type changes; prompt and other args untouched", async 
   assert.equal(args.subagent_type, "builder--provider-model-b")
   assert.equal(args.prompt, "keep me"); assert.equal(args.description, "d")
 })
+await test("rotation rewrites args only; policy and forged identity cannot start jobs", async () => {
+  let clientAccesses = 0
+  const client = new Proxy({}, { get() { clientAccesses++; throw new Error("rotation must not start jobs") } })
+  const hooks: any = await plugin({ client })
+  assert.deepEqual(Object.keys(hooks), ["tool.execute.before"])
+  for (const decision of [undefined, "ask", "deny"]) {
+    const input: any = { tool: "task", sessionID: "s", agent_id: "dispatch-pre.sh", permissionDecision: decision }
+    const originalInput = structuredClone(input)
+    const args = { subagent_type: "builder", prompt: "pin_arm: provider/model-b\n\nbody", description: "keep" }
+    const output: any = { args: { ...args } }
+    if (decision) output.permissionDecision = decision
+    const expected = { ...structuredClone(output), args: { ...args, subagent_type: "builder--provider-model-b" } }
+    assert.equal(await hooks["tool.execute.before"](input, output), undefined)
+    assert.deepEqual(output, expected)
+    assert.deepEqual(input, originalInput)
+  }
+  assert.equal(clientAccesses, 0)
+})
 await test("pin_arm: header pin honoured; late/unlisted/disabled pin ignored", async () => {
   for (let s = 0; s < 10; s++) assert.equal((await call("builder", "pin_arm: provider/model-b\nw", { ROTATION_SEED: String(s) })).subagent_type, "builder--provider-model-b")
   for (let s = 0; s < 10; s++) assert.equal((await call("builder", "pin_arm: provider/model-a\nw", { ROTATION_SEED: String(s) })).subagent_type, "builder")

@@ -4,7 +4,7 @@
 
 [Install](INSTALL.md) · [Catalog](CATALOG.md) · [Architecture](ARCHITECTURE.md) · [How it works](#how-the-system-works) · [Site](https://nikkhosravipour.com)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.4.1--preview-57534e?style=flat)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.4.2--preview-57534e?style=flat)](CHANGELOG.md)
 
 I run most of my software and research work through coding agents. Left alone, they drift: the scope widens,
 the agent grades its own homework, a destructive command slips through, and everything it knew dies when the
@@ -73,7 +73,7 @@ that every scheduled loop is still actually wired.
 | Personal writing and voice tooling, personal data | not included | — |
 
 Every ported file records where it came from and what changed in a PROVENANCE.md file next to it (PROVENANCE.txt for agents). A privacy
-scan (`scripts/privacy_scan.py`) runs before every release so nothing personal leaks into the public tree.
+scan (`scripts/privacy_scan.py`) runs before every release as a tripwire for common personal markers in the public tree.
 
 ## A real example
 
@@ -92,8 +92,9 @@ converging — is what the system is for.
 /plugin install ai-architecture-gates@ai-architecture    # optional: the guard hooks (read plugins/gates/README.md first)
 ```
 
-Or copy a single directory, such as `skills/plan-pack/`, into your project. [INSTALL.md](INSTALL.md) covers
-OpenCode, user-level guard configuration and partial adoption.
+Or selectively copy a skill and its declared dependencies into your project. `plan-pack` also needs
+root-level templates and tools; its T2+ execution uses companion skills and configured roles.
+[INSTALL.md](INSTALL.md) covers OpenCode, user-level guard configuration and partial adoption.
 
 ## Design decisions
 

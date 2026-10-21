@@ -66,8 +66,10 @@ and the hook cannot deny a tool call.
 
 ## Output and harness behaviour
 
-The hook answers with `permissionDecision: "allow"` plus the rewritten input. That auto-approves the dispatch; a `deny` or `ask`
-from another hook still wins. A pool model name that passes the strict name check but that your harness does not accept may make
+The hook answers with `hookEventName: "PreToolUse"` and `updatedInput` only, with no `permissionDecision`.
+Routing never grants tool permission: the harness's existing permission rules and other hooks still decide whether the dispatch runs.
+This hook never starts external workers, so a denied call or forged hook identity cannot trigger a job through rotation.
+A pool model name that passes the strict name check but that your harness does not accept may make
 the harness reject the dispatch outright: it is not silently replaced by the default. Keep the pool to names your harness knows.
 
 The OpenCode counterpart is described in [opencode/rotation](../../../../opencode/rotation/README.md).

@@ -43,9 +43,10 @@ found later become `Lane: build` items in THIS pack, not a new pack (unless they
   only, no globs; item may not write outside it; mandatory for T2+ items>
 - Gate: auto | human — <reason> <start gate; ABSENT = auto (builds once Needs: are done). `human`
   only for strategic items: direction/scope · money · external party / public push · product taste ·
-  unrecoverable data loss. The reason text must contain one of: outside repo · delete · overwrite ·
-  install · merge · money · external (plancheck checks this). Merges into a shared branch are
-  `auto` plus a fresh-context reviewer. Governs starting only — review depth stays with Stakes:>
+  unrecoverable data loss. The reason text must contain one of: scope · direction · money ·
+  external · publication · taste · unrecoverable (plancheck checks keywords, not intent).
+  Installs and merges are not intrinsically human-gated; they are `auto` plus the required
+  verification and fresh-context reviewer. Governs starting only — review depth stays with Stakes:>
 - Blocked-by: Qn <only if an open question in QUESTIONS.md gates this item — blocked
   items are not built; implementers append `Deviation:` lines here when the build
   diverges from What>

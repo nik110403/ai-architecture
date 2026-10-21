@@ -1,7 +1,7 @@
 # Provenance
 
 Same `Field: value` format as the other provenance files in this repository (`Source-sha256` = sha256 of the source file
-as read when it was ported). Sources named `~/.config/opencode/...` or `claude_improvement/bin/...` are an author's
+as read when it was ported). Sources named `~/.config/opencode/...` or `private operator repository, bin/...` are an author's
 installed OpenCode file and operator-repository test file; they are not shipped. `scripts/check_collection.py`
 validates this file.
 
@@ -18,8 +18,9 @@ Deltas:
 - the pool read is stricter: a symlinked, oversized or wrong-`version` file, or any malformed entry in a role's list, means no rotation for that call/role; names and integer weights are validated, and nothing reaches a shell
 - pool schema reduced to placeholder models and weights (`{model, weight, enabled}` per role, optional `independent_roles`); the `harness:model` arm syntax, harness allowlists, `claude_task` redirects, quota/usage-cache reads and the personal default paths are removed
 - removed: alias bypass (`<role>--<slug>` names pass through untouched), the model self-check boilerplate stripper, charge-id extraction, the default decision-log path (the log is opt-in via `ROTATION_LOG`)
-- kept: variant-agent switching via `<role>--<slug>` (the variant must exist in the OpenCode config or the call is unchanged), `pin_arm` header-only provenance with the 15-line cap, `builder_arm` exclusion for independent roles anywhere in the brief, CRLF normalisation
+- variant-agent switching uses `<role>--<slug>` (the variant must exist in the OpenCode config or the call is unchanged). Both `pin_arm` and `builder_arm` are header-only (before the first blank line, at most 15 lines), with CRLF normalisation. Independent roles exclude the builder; duplicate `builder_arm:` lines anywhere skip rotation. Pins equal to the builder or independent-role pins without a builder header are ignored.
 - the variant-agent generator the author uses is not included; variants are written by hand (see README.md)
+- permission neutrality matches the staged hook semantics: only arguments change, no policy decision or worker startup; no new external-worker gate is needed
 
 ## plugin.ts
 
@@ -34,11 +35,12 @@ Deltas:
 ## rotation tests
 
 Kit file: rotation/tests/rotation.test.ts and rotation/tests/run.sh
-Source: claude_improvement/bin/tests/test-opencode-rotation.sh
+Source: private operator repository, bin/tests/test-opencode-rotation.sh
 Source-sha256: 97883b27dd46121e09467fb1fb8e995cad473d9516959887b5273c8266aa600b
 State: re-authored
 
 Deltas:
 - the source's module checks (slug, pin and builder parsing, weighted pick with an injected generator, header-only pin, builder exclusion, fail-open on invalid pool) are rewritten against the reduced module; its second half (variant-agent generator) is not ported
 - new cases: seeded determinism and 3:1 weights, fail-safe table for invalid pools and config, an unlisted model is never produced, no throw on odd input
+- exact output-shape checks preserve absent/ask/deny policy decisions and input metadata; a tripwire plugin client verifies routing does not request jobs even with forged identity
 - the test runner runs the Claude Code hook tests first and the module tests when `bun` is present (prints `NOT RUN` otherwise)

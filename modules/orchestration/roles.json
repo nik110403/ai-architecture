@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "roles": {
+    "builder": {
+      "intent": [
+        "implement",
+        "build",
+        "fix",
+        "refactor"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "Edit"
+      ]
+    },
+    "implementer": {
+      "intent": [
+        "code",
+        "write",
+        "patch"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob"
+      ]
+    },
+    "verifier": {
+      "intent": [
+        "verify",
+        "check",
+        "validate"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ]
+    },
+    "tribune": {
+      "intent": [
+        "tribunal",
+        "panel",
+        "lens"
+      ],
+      "access": "read",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ]
+    },
+    "refuter": {
+      "intent": [
+        "refute",
+        "disprove",
+        "falsify"
+      ],
+      "access": "read",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ]
+    },
+    "researcher": {
+      "intent": [
+        "research",
+        "investigate",
+        "sources"
+      ],
+      "access": "read",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "WebFetch",
+        "WebSearch"
+      ]
+    },
+    "security-reviewer": {
+      "intent": [
+        "security",
+        "vulnerability",
+        "threat"
+      ],
+      "access": "read",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ]
+    },
+    "design-critic": {
+      "intent": [
+        "critique",
+        "accessibility",
+        "usability"
+      ],
+      "access": "read",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ]
+    },
+    "surveyor": {
+      "intent": [
+        "survey",
+        "inventory",
+        "locate"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ]
+    },
+    "pipeline-runner": {
+      "intent": [
+        "pipeline",
+        "run-pipeline",
+        "batch"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ]
+    },
+    "steward": {
+      "intent": [
+        "steward",
+        "drift",
+        "cleanup"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ]
+    },
+    "design-builder": {
+      "intent": [
+        "interface",
+        "component",
+        "layout"
+      ],
+      "access": "write",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob"
+      ]
+    },
+    "browser-worker": {
+      "intent": [
+        "browser",
+        "web",
+        "lookup"
+      ],
+      "access": "read",
+      "tools": [
+        "WebFetch"
+      ]
+    }
+  }
+}

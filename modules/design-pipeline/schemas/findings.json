@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "description": "A critic's findings. Each cites an evidence id that exists in the bundle it was given and carries that bundle's sha.",
+  "type": "object",
+  "fields": {
+    "claims_browser_validation": {"type": "bool", "required": true},
+    "approved": {"type": "bool", "required": true},
+    "findings": {"type": "list", "required": true, "item": {"type": "object", "fields": {
+      "id": {"type": "string", "required": true}, "check": {"type": "string", "required": true},
+      "evidence_id": {"type": "string", "required": true},
+      "priority": {"type": "string", "required": true, "enum": ["blocking", "advisory"]},
+      "bundle_sha": {"type": "string", "required": true}}}}
+  }
+}

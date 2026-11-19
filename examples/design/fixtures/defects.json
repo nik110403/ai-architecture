@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "note": "Each defect is a text edit of the good tree. The bad tree is the good tree with the first eight applied; the builder stand-in reverses one edit per finding. Port markers are replaced by the tests.",
+  "order": ["a11y-name", "contrast", "overflow", "keyboard-reach", "focus-visible", "interaction", "reduced-motion", "external-request"],
+  "defects": {
+    "a11y-name": {"edits": [{"file": "index.html", "good": "<h1>Notes</h1>", "bad": "<h1>Notes</h1><button id=\"icon-btn\" type=\"button\"><svg aria-hidden=\"true\" width=\"16\" height=\"16\"><circle cx=\"8\" cy=\"8\" r=\"6\"></circle></svg></button>"}]},
+    "contrast": {"edits": [{"file": "style.css", "good": ".faint{color:#000000}", "bad": ".faint{color:#999999}"}]},
+    "overflow": {"edits": [{"file": "style.css", "good": ".wide{display:none}", "bad": ".wide{display:none}\n@media (max-width:400px){.wide{display:block;width:600px;height:20px;border:1px solid #000000}}"}]},
+    "keyboard-reach": {"edits": [{"file": "index.html", "good": "id=\"card\" class=\"card\" role=\"button\" tabindex=\"0\"", "bad": "id=\"card\" class=\"card\" role=\"button\""}]},
+    "focus-visible": {"edits": [{"file": "style.css", "good": "#dlg[hidden]{display:none}", "bad": "#dlg[hidden]{display:none}\n#menu-btn:focus,#menu-btn:focus-visible{outline:none}"}]},
+    "interaction": {"edits": [{"file": "app.js", "good": "if (e.key === 'Escape' && e.isTrusted) { dlg.hidden = true; }", "bad": "/* escape ignored */"}]},
+    "reduced-motion": {"edits": [{"file": "style.css", "good": "@media (prefers-reduced-motion: reduce){.spinner{animation-duration:0.001s}}", "bad": "/* motion ignored */"}]},
+    "external-request": {"edits": [{"file": "index.html", "good": "<div class=\"spinner\" aria-hidden=\"true\"></div>", "bad": "<div class=\"spinner\" aria-hidden=\"true\"></div>\n<img src=\"http://203.0.113.9/pixel.png\" alt=\"remote pixel\" width=\"1\" height=\"1\">"}]}
+  },
+  "extra": {
+    "keyboard-trap": {"edits": [
+      {"file": "index.html", "good": "<h1>Notes</h1>", "bad": "<input id=\"trap\" type=\"text\" aria-label=\"Search\"><h1>Notes</h1>"},
+      {"file": "app.js", "good": "var card = document.getElementById('card');", "bad": "var card = document.getElementById('card');\ndocument.getElementById('trap').addEventListener('keydown', function (e) { if (e.key === 'Tab') { e.preventDefault(); } });"}]},
+    "tokens": {"edits": [{"file": "style.css", "good": ".lede{color:#000000}", "bad": ".lede{color:#c00000;font-family:monospace}"}]},
+    "escape": {"edits": [{"file": "index.html", "good": "<script src=\"app.js\"></script>", "bad": "<script src=\"app.js\"></script>\n<script src=\"probe.js\"></script>"}],
+      "files": {"probe.js": "(function () {\n  var u = 'http://127.0.0.1:__PORT__/probe';\n  try { window.open(u); } catch (e) {}\n  try { new Worker('w.js'); } catch (e) {}\n  try { navigator.sendBeacon(u, 'x'); } catch (e) {}\n  try { new WebSocket('ws://127.0.0.1:__PORT__/ws'); } catch (e) {}\n  try { fetch(u); } catch (e) {}\n})();\n",
+                "w.js": "fetch('http://127.0.0.1:__PORT__/w').catch(function () {});\ntry { new WebSocket('ws://127.0.0.1:__PORT__/ws2'); } catch (e) {}\n"}}
+  }
+}

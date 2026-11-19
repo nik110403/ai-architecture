@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "module": "memory-backends",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {
+      "identifier": "core-contracts",
+      "version": "1.0.0",
+      "status": "declared-untested"
+    },
+    {
+      "identifier": "memory",
+      "version": "1.0.0",
+      "status": "declared-untested"
+    }
+  ],
+  "schemas": []
+}

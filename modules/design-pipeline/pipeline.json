@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "stages": ["route", "record", "build", "render", "critique", "revise", "render", "critique", "receipt"],
+  "next": {"start": ["route"], "route": ["record"], "record": ["build"], "build": ["render"], "render": ["critique"],
+           "critique": ["revise", "receipt"], "revise": ["render"], "receipt": []},
+  "max_revisions": 2,
+  "lanes": ["product", "polish-only"],
+  "default_adapters": ["accessibility", "motion"],
+  "default_viewports": ["1280x800", "375x812"],
+  "exit_codes": {"PASS": 0, "FAIL": 1, "refused": 2, "NOT RUN": 3},
+  "png_deterministic": true,
+  "stable_exclude": ["job_id", "pid", "started_at", "finished_at", "branch", "self_sha256"],
+  "derived_fields": []
+}

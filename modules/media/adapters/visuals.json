@@ -1,0 +1,10 @@
+{
+  "adapter": "visuals",
+  "obligations": ["infographic", "visual-plan", "visual-recap", "system-atlas"],
+  "optional": true,
+  "dependencies": [
+    {"kind": "renderer", "name": "chrome", "use": "chrome-html screenshot of one generated page per kind", "observed": "Google Chrome 156"},
+    {"kind": "tool", "name": "git", "use": "visual-recap only: numstat and log of a local repository", "only": ["visual-recap"]},
+    {"kind": "font", "family": "DejaVu Sans", "use": "the only declared font, checked with fc-list"}
+  ]
+}

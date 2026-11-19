@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "kinds": [
+    "debug",
+    "domain",
+    "secure-build",
+    "security-audit",
+    "incident"
+  ],
+  "stable_exclude": [
+    "job_id",
+    "pid",
+    "started_at",
+    "finished_at",
+    "branch"
+  ],
+  "upstream_states": [
+    "unavailable",
+    "present-untested"
+  ],
+  "upstream_claim": "not exercised",
+  "dependency_effect": "generic contract only",
+  "journeys": {
+    "debug": {
+      "repo": "repos/bug",
+      "roles": [
+        "builder",
+        "verifier"
+      ],
+      "inputs": [
+        "slug.py"
+      ],
+      "test_file": "check_slug.py",
+      "repro_script": "check_repro.py",
+      "dependencies": [
+        {
+          "id": "superpowers",
+          "source": "superpowers"
+        },
+        {
+          "id": "reuse-first-implementation",
+          "source": null
+        }
+      ],
+      "fixtures": "bug"
+    },
+    "domain": {
+      "repo": "repos/domain",
+      "roles": [
+        "surveyor",
+        "refuter"
+      ],
+      "inputs": [
+        "glossary.md",
+        "metrics.py"
+      ],
+      "script": "check_scenario.py",
+      "scenarios": [
+        "S1",
+        "S2"
+      ],
+      "ref_files": [
+        "glossary.md",
+        "metrics.py"
+      ],
+      "dependencies": [
+        {
+          "id": "domain-contradiction-review",
+          "source": null
+        },
+        {
+          "id": "improvement-scoping",
+          "source": null
+        }
+      ],
+      "fixtures": "domain"
+    },
+    "secure-build": {
+      "repo": "repos/secure",
+      "roles": [
+        "builder",
+        "security-reviewer"
+      ],
+      "inputs": [
+        "fileserver.py"
+      ],
+      "script": "check_attacks.py",
+      "threats": [
+        {
+          "id": "traversal",
+          "input": "../outside/secret.txt"
+        },
+        {
+          "id": "absolute",
+          "input": "{secret}"
+        },
+        {
+          "id": "symlink-escape",
+          "input": "escape/secret.txt"
+        }
+      ],
+      "benign": {
+        "id": "benign",
+        "input": "docs/readme.txt"
+      },
+      "dependencies": [
+        {
+          "id": "secure-new-code",
+          "source": null
+        }
+      ],
+      "fixtures": "secure"
+    },
+    "security-audit": {
+      "repo": "repos/audit",
+      "roles": [
+        "surveyor",
+        "refuter"
+      ],
+      "inputs": [
+        "app.py"
+      ],
+      "script": "check_exploit.py",
+      "evidence": {
+        "E1": "injection",
+        "E2": "decoy"
+      },
+      "statuses": [
+        "confirmed",
+        "requires-deployment-testing",
+        "hardening"
+      ],
+      "dependencies": [
+        {
+          "id": "security-audit",
+          "source": null
+        }
+      ],
+      "fixtures": "audit"
+    },
+    "incident": {
+      "repo": "repos/incident",
+      "roles": [
+        "surveyor",
+        "tribune",
+        "builder"
+      ],
+      "inputs": [
+        "app.log",
+        "state.json"
+      ],
+      "script": "check_incident.py",
+      "facts_file": "app.log",
+      "metric": {
+        "name": "latency_ms",
+        "threshold": 300
+      },
+      "min_candidates": 2,
+      "max_failures": 2,
+      "changes": {
+        "C1": {
+          "set": {
+            "workers": 4
+          },
+          "requires": {
+            "workers": 2
+          },
+          "risk": "low"
+        },
+        "C2": {
+          "set": {
+            "cache": "on"
+          },
+          "requires": {
+            "cache_backend": "local"
+          },
+          "risk": "medium"
+        },
+        "C3": {
+          "set": {
+            "timeout_s": 10
+          },
+          "requires": {
+            "timeout_s": 5
+          },
+          "risk": "high"
+        }
+      },
+      "dependencies": [
+        {
+          "id": "system-troubleshooting",
+          "source": null
+        }
+      ],
+      "fixtures": "incident"
+    }
+  }
+}

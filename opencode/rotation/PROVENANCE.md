@@ -21,6 +21,7 @@ Deltas:
 - variant-agent switching uses `<role>--<slug>` (the variant must exist in the OpenCode config or the call is unchanged). Both `pin_arm` and `builder_arm` are header-only (before the first blank line, at most 15 lines), with CRLF normalisation. Independent roles exclude the builder; duplicate `builder_arm:` lines anywhere skip rotation. Pins equal to the builder or independent-role pins without a builder header are ignored.
 - the variant-agent generator the author uses is not included; variants are written by hand (see README.md)
 - permission neutrality matches the staged hook semantics: only arguments change, no policy decision or worker startup; no new external-worker gate is needed
+- live drift noted 2026-11-06 (R9-U12): the installed source now hashes to `e65634b5314fb9479b201c33bf1d194c150bfdb170c81ad5f04c9cd7880b4dd8`, so it changed after this port; not re-ported in U12, `Source-sha256` above stays the ported version. U12 added only a consumer test case for pools written by `modules/model-evaluation` reweighting; the module code is unchanged
 
 ## plugin.ts
 

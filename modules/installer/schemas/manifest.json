@@ -1,0 +1,6 @@
+{
+  "schema": "installer-manifest/1",
+  "description": "A manifest is {schema, name, version, files}. Each file is {src, dest, mode, sha256}: src is relative to the manifest, dest is relative to --target-root (no .., no absolute path, no symlinked component), mode is four octal digits as a string, sha256 pins the source bytes.",
+  "required": {"schema": "string", "name": "string", "version": "string", "files": "list"},
+  "file": {"required": {"src": "string", "dest": "string", "mode": "string", "sha256": "string"}}
+}

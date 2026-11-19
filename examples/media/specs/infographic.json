@@ -1,0 +1,7 @@
+{"title": "Weekly usage", "size": "1080x1350", "bar_color": "#2a6fdb",
+ "stats": [
+  {"id": "alpha", "label": "Alpha team", "value": 42},
+  {"id": "beta", "label": "Beta team", "value": 28},
+  {"id": "gamma", "label": "Gamma team", "value": 14},
+  {"id": "delta", "label": "Delta team", "value": 7}
+ ]}

@@ -1,0 +1,14 @@
+{
+  "lock_wait_seconds": 10,
+  "max_active_jobs": 8,
+  "launch_grace_seconds": 30,
+  "stuck_grace_seconds": 180,
+  "cancel_wait_seconds": 30,
+  "handoff_reserve_tokens": 20000,
+  "handoff_cap_tokens": null,
+  "prepare_fraction": 0.8,
+  "context_limits": {},
+  "child_budget_tokens": null,
+  "child_budget_pool_tokens": null,
+  "resume_max_bytes": 4096
+}

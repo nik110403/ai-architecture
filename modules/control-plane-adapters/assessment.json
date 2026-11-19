@@ -1,0 +1,160 @@
+{
+  "schema": "control-plane-assessment/1",
+  "cells": ["budget", "unknown-cost", "gate-human", "blocked-by", "freeze-drift", "touches", "corrupt-state", "double-kickoff", "interruption", "queued-drain", "status-readonly", "pause", "stop", "resume-once"],
+  "records": [
+    {
+      "id": "native-autopilot",
+      "description": "The native optional unattended runner in modules/autopilot, driven through the adapter protocol by native_adapter.py.",
+      "kind": "native",
+      "requirements": ["Linux", "git", "Python 3.9+", "bubblewrap for Verify"],
+      "applies_to_contract": true,
+      "cells": {"budget": "pass", "unknown-cost": "pass", "gate-human": "pass", "blocked-by": "pass", "freeze-drift": "pass", "touches": "pass", "corrupt-state": "pass", "double-kickoff": "pass", "interruption": "pass", "queued-drain": "pass", "status-readonly": "pass", "pause": "pass", "stop": "pass", "resume-once": "pass"},
+      "disposition": "supported",
+      "evidence": ["test:modules/control-plane-adapters/tests/test_control_plane.py::test_a14_native_autopilot_passes_every_cell", "test:modules/autopilot/tests/test_autopilot.py::test_a1_journey"],
+      "equivalent": "itself: the supported runner for this contract"
+    },
+    {
+      "id": "paperclip",
+      "description": "The third-party control plane (a Node.js package with an embedded database) that the operator's experiments were built around.",
+      "kind": "third-party",
+      "requirements": ["Node.js runtime", "embedded database", "network install from a package registry"],
+      "applies_to_contract": true,
+      "cells": {"budget": "not-run", "unknown-cost": "not-run", "gate-human": "not-run", "blocked-by": "not-run", "freeze-drift": "not-run", "touches": "not-run", "corrupt-state": "not-run", "double-kickoff": "not-run", "interruption": "not-run", "queued-drain": "not-run", "status-readonly": "not-run", "pause": "not-run", "stop": "not-run", "resume-once": "not-run"},
+      "disposition": "not-ported",
+      "evidence": ["test:modules/control-plane-adapters/tests/test_control_plane.py::test_a14_assessment_validates_and_is_complete", "provenance:operator control-plane experiment: plan binding/ownership runner"],
+      "equivalent": "the native autopilot; a third-party adapter can be trialled with conformance.py --adapter <absolute path> --allow-adapter once an operator has installed it"
+    },
+    {
+      "id": "worker-containment",
+      "description": "Isolation of the worker itself (not only of the Verify step) in an unattended run.",
+      "kind": "native",
+      "requirements": ["a sandbox with a network mode for the harness", "changes to the dispatcher"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "incomplete",
+      "evidence": ["test:modules/autopilot/tests/test_autopilot.py::test_a10_write_outside_rw_fails", "provenance:operator unattended plan runner, controller"],
+      "blocker": "harness needs network; sandbox.py has no network mode; orchestration outside the fence"
+    },
+    {
+      "id": "background-round-runner",
+      "description": "A background plan runner that executes one round per scheduler tick.",
+      "kind": "operator-experimental",
+      "requirements": ["a scheduler entry created by the operator"],
+      "applies_to_contract": true,
+      "cells": {"budget": "not-run", "unknown-cost": "not-run", "gate-human": "not-run", "blocked-by": "not-run", "freeze-drift": "not-run", "touches": "not-run", "corrupt-state": "not-run", "double-kickoff": "not-run", "interruption": "not-run", "queued-drain": "not-run", "status-readonly": "not-run", "pause": "not-run", "stop": "not-run", "resume-once": "not-run"},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator background plan runner (one round per tick)", "test:modules/autopilot/tests/test_autopilot.py::test_a2_detach_creates_no_scheduler_entry_and_records_pid"],
+      "equivalent": "autopilot resume run by the operator's own scheduler; maintenance.py scheduler plan prints the unit or cron text without installing it"
+    },
+    {
+      "id": "ready-frontier-report",
+      "description": "A report of the ready frontier of a plan pack.",
+      "kind": "operator-experimental",
+      "requirements": ["a plan pack"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator ready-frontier report", "test:modules/autopilot/tests/test_autopilot.py::test_a12_status_is_read_only_and_lockless"],
+      "equivalent": "autopilot status --json lists done, pending and queued items from the same selection rule the runner uses"
+    },
+    {
+      "id": "sandboxed-verify-runner",
+      "description": "Running an item's Verify command in a fresh tree inside a sandbox.",
+      "kind": "operator-experimental",
+      "requirements": ["bubblewrap"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "supported",
+      "evidence": ["provenance:operator sandboxed verify runner", "test:modules/autopilot/tests/test_autopilot.py::test_a10_write_outside_rw_fails", "test:modules/autopilot/tests/test_autopilot.py::test_a10_no_bwrap_is_unverifiable_and_never_unsandboxed"],
+      "equivalent": "modules/autopilot/verify.py (object-store tree) composed with modules/isolation/sandbox.py"
+    },
+    {
+      "id": "plan-binding-runner",
+      "description": "A runner that binds a plan to a third-party control plane and records ownership there.",
+      "kind": "operator-experimental",
+      "requirements": ["the third-party control plane", "Node.js runtime", "embedded database"],
+      "applies_to_contract": true,
+      "cells": {"budget": "not-run", "unknown-cost": "not-run", "gate-human": "not-run", "blocked-by": "not-run", "freeze-drift": "not-run", "touches": "not-run", "corrupt-state": "not-run", "double-kickoff": "not-run", "interruption": "not-run", "queued-drain": "not-run", "status-readonly": "not-run", "pause": "not-run", "stop": "not-run", "resume-once": "not-run"},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator control-plane experiment: plan binding/ownership runner", "test:modules/autopilot/tests/test_autopilot.py::test_a7_double_kickoff_exactly_one_controller"],
+      "equivalent": "the native autopilot's persisted ownership: a flock plus an owner record with pid, start ticks and boot id"
+    },
+    {
+      "id": "pilot-instance-installer",
+      "description": "An installer for a pilot instance of the third-party control plane.",
+      "kind": "operator-experimental",
+      "requirements": ["network install from a package registry", "embedded database"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator control-plane experiment: pilot instance installer", "test:modules/installer/tests/test_installer.py::test_a15_apply_noop_upgrade_rollback"],
+      "equivalent": "modules/installer: a generic manifest-driven install with rollback; a pinned third-party package is described in PATTERNS.md, never executed"
+    },
+    {
+      "id": "network-relay",
+      "description": "A network relay in front of a loopback-only instance of the third-party control plane.",
+      "kind": "operator-experimental",
+      "requirements": ["LAN exposure", "mutual TLS"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator control-plane experiment: network relay in front of a loopback-only instance"],
+      "blocker": "exposes a control plane on the network; outside the optional-adapter contract and excluded on purpose"
+    },
+    {
+      "id": "trusted-pilot",
+      "description": "A trusted pilot of the third-party control plane with its own authorisation reference.",
+      "kind": "operator-experimental",
+      "requirements": ["the third-party control plane", "an operator authorisation reference"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator control-plane experiment: trusted pilot"],
+      "blocker": "depends on an authorisation reference specific to one operator and one control plane; nothing portable to ship"
+    },
+    {
+      "id": "trusted-process-adapter",
+      "description": "A process adapter that lets the third-party control plane start a runner under operator controls.",
+      "kind": "operator-experimental",
+      "requirements": ["the third-party control plane"],
+      "applies_to_contract": true,
+      "cells": {"budget": "not-run", "unknown-cost": "not-run", "gate-human": "not-run", "blocked-by": "not-run", "freeze-drift": "not-run", "touches": "not-run", "corrupt-state": "not-run", "double-kickoff": "not-run", "interruption": "not-run", "queued-drain": "not-run", "status-readonly": "not-run", "pause": "not-run", "stop": "not-run", "resume-once": "not-run"},
+      "disposition": "adapter-slot",
+      "evidence": ["provenance:operator control-plane experiment: trusted runner (process adapter, operator controls)", "test:modules/control-plane-adapters/tests/test_control_plane.py::test_a14_empty_slot_is_not_run_never_pass"],
+      "equivalent": "conformance.py accepts any adapter named by an absolute path; an empty slot reports every cell not-run"
+    },
+    {
+      "id": "trusted-launch-entrypoint",
+      "description": "The launch entrypoint that starts a trusted run with an authorisation reference.",
+      "kind": "operator-experimental",
+      "requirements": ["an operator authorisation reference"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator control-plane experiment: trusted launch entrypoint"],
+      "blocker": "an authorisation reference is not portable; native live kickoff uses a TTY plus a typed confirmation instead"
+    },
+    {
+      "id": "guard-installer",
+      "description": "The historical installer for the destructive-command guard.",
+      "kind": "operator-experimental",
+      "requirements": ["a host-specific guard"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator guard installer (historical)", "test:modules/installer/tests/test_installer.py::test_a15_interrupt_at_every_journal_step_then_recover"],
+      "equivalent": "modules/installer: backup, hash, install and rollback as one pattern; guard integrity itself stays with the gates plugin"
+    },
+    {
+      "id": "sandbox-installer",
+      "description": "The historical installer for the sandbox package.",
+      "kind": "operator-experimental",
+      "requirements": ["a package manager and root"],
+      "applies_to_contract": false,
+      "cells": {},
+      "disposition": "not-ported",
+      "evidence": ["provenance:operator sandbox installer (historical)"],
+      "equivalent": "sandbox.py probe plus the documented install line in the isolation README; no installer runs a package manager"
+    }
+  ]
+}

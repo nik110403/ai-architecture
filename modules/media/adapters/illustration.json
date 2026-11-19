@@ -1,0 +1,10 @@
+{
+  "adapter": "illustration",
+  "obligations": ["illustration"],
+  "optional": true,
+  "dependencies": [
+    {"kind": "provider", "name": "illustration provider command", "interface": "illustration/1",
+     "describe": ["interface", "kind", "network", "cost", "licence", "notice_required", "output"],
+     "use": "a command you configure; this collection ships only a stub that proves the interface"}
+  ]
+}

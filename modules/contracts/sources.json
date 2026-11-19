@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "sources": [
+    {"identifier": "opencode-plugin", "origin": "npm:@opencode-ai/plugin", "version": "1.18.31", "revision": null, "license": "MIT", "redistribution": "not-vendored", "delta": "Nothing copied. Package metadata only; compatibility untested.", "disposition": "external-untested"},
+    {"identifier": "superpowers", "origin": "https://github.com/obra/superpowers", "version": "7.0.0", "revision": "bb92a77741419a4ab5f06e711a283343f1ada0c3", "license": "MIT", "redistribution": "not-vendored", "delta": "Nothing copied. Activation and compatibility untested.", "disposition": "external-untested"},
+    {"identifier": "document-skills", "origin": "anthropic-agent-skills/document-skills", "version": "ca45fc496a34", "revision": "ca45fc496a3436251f191354091d557da31c15b5", "license": "Proprietary", "redistribution": "blocked", "delta": "Per-skill terms for DOCX, PDF, PPTX, XLSX forbid copying, derivatives and distribution. External integration only. Support untested.", "disposition": "external-only"},
+    {"identifier": "epic-infographics", "origin": "none", "version": "NONE", "revision": null, "license": "MIT-package-only", "redistribution": "blocked", "delta": "Not selected: repository unresolved, package metadata only. Nothing copied.", "disposition": "excluded"},
+    {"identifier": "local-adapters", "origin": "none", "version": "NONE", "revision": null, "license": "NOT-APPLICABLE", "redistribution": "blocked", "delta": "No source selected and none copied. Generic contracts here are independently authored. No support claim.", "disposition": "excluded"},
+    {"identifier": "research-project", "origin": "none", "version": "STAGED", "revision": null, "license": "UNKNOWN", "redistribution": "blocked", "delta": "Staged and not activated; no copying, no support claim.", "disposition": "staged"},
+    {"identifier": "research-synthesis", "origin": "none", "version": "STAGED", "revision": null, "license": "UNKNOWN", "redistribution": "blocked", "delta": "Staged and not activated; no copying, no support claim.", "disposition": "staged"}
+  ]
+}

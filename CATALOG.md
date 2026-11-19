@@ -18,7 +18,7 @@
 | [convergence](skills/convergence/SKILL.md) | bounded multi-lens review | [panel-review.md](templates/panel-review.md) |
 | [lifecycle](skills/lifecycle/SKILL.md) | pending results and safe handoff | [lifecycle-record.md](templates/lifecycle-record.md) |
 | [discovery](skills/discovery/SKILL.md) | instructions, memory, and project inventory | [report-only memory check](skills/discovery/scripts/memory_check.py) |
-| [operations](skills/operations/SKILL.md) | drift, loops, scout, retro, promotion | local process only |
+| [operations](skills/operations/SKILL.md) | drift, loops, scout, retro, promotion (learning and skill supply: incomplete in this preview) | local process only |
 | [specialist-journeys](skills/specialist-journeys/SKILL.md) | dependency-explicit specialist work | [playbooks.md](skills/specialist-journeys/playbooks.md) |
 | [plan-pack](skills/plan-pack/SKILL.md) | writing a strategy, spec and tracker for bigger work | [templates](templates/), `tools/plancheck/` |
 | [exec-pack](skills/exec-pack/SKILL.md) | running a spec's items as parallel waves of workers | `tools/gate-check/` |
@@ -34,6 +34,11 @@
 - [researcher](agents/researcher.md)
 - [security-reviewer](agents/security-reviewer.md)
 - [design-critic](agents/design-critic.md)
+- [surveyor](agents/surveyor.md)
+- [pipeline-runner](agents/pipeline-runner.md)
+- [steward](agents/steward.md)
+- [design-builder](agents/design-builder.md)
+- [browser-worker](agents/browser-worker.md)
 
 ## Commands
 
@@ -48,4 +53,4 @@ The optional journal is a local companion utility, not required for the continui
 
 For the broader operating-model map, statuses, and unported dependencies, see
 [CAPABILITIES.md](CAPABILITIES.md) and [WORKFLOWS.md](WORKFLOWS.md). This catalog has
-21 skills, 8 roles, and 6 commands. Router reports do not create native enforcement.
+21 skills, 13 roles, and 6 commands. Router reports do not create native enforcement.

@@ -1,0 +1,13 @@
+{"plan_id": "pilot-plan",
+ "steps": [
+  {"id": "collect", "title": "Collect inputs", "needs": []},
+  {"id": "clean", "title": "Clean the data", "needs": ["collect"]},
+  {"id": "model", "title": "Fit the model", "needs": ["clean"]},
+  {"id": "report", "title": "Write the report", "needs": ["clean", "model"]}
+ ],
+ "files": [
+  {"path": "src/collect.py", "step": "collect"},
+  {"path": "src/clean.py", "step": "clean"},
+  {"path": "src/model.py", "step": "model"},
+  {"path": "docs/report.md", "step": "report"}
+ ]}

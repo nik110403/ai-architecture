@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "module": "development",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {
+      "identifier": "core-contracts",
+      "version": "1.0.0",
+      "status": "declared-untested"
+    },
+    {
+      "identifier": "superpowers",
+      "version": "7.0.0",
+      "status": "declared-untested"
+    }
+  ],
+  "schemas": [
+    "result"
+  ]
+}

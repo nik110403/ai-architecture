@@ -5,11 +5,13 @@
 usage() {
   cat <<'EOF'
 loop-sync — verify each loop in a registry is actually wired.
-Usage: loop-sync --registry <LOOPS.md> [--strict] [--host <name>] [--settings <file>]
+Usage: loop-sync --registry <LOOPS.md> [--strict] [--host <name>] [--settings <file>] [--format text|json]
   --registry <file>  LOOPS.md-format registry (or set LOOPS_FILE). Required.
   --strict           exit 1 if any registry row is documented-but-unwired. The default run
                      always exits 0; output is identical either way.
   --host <name>      treat this as the current host (default: `hostname -s`)
+  --format json      print one JSON object (rows with per-check verdicts ok|warn|dead) instead of
+                     text; verdicts and the exit code are identical to the text run
   --settings <file>  JSON/text settings file searched by `hook:` checks (default: none, so
                      hook checks report "not checkable")
 Registry columns are found by header name: `Loop` (first cell, in backticks), `Hosts`
@@ -27,6 +29,7 @@ STRICT=0
 REGISTRY="${LOOPS_FILE:-}"
 HOST=""
 SETTINGS=""
+FORMAT="text"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --strict) STRICT=1; shift ;;
@@ -39,6 +42,9 @@ while [[ $# -gt 0 ]]; do
     --settings)
       [[ $# -ge 2 && -n "$2" ]] || { echo "loop-sync: --settings needs a value" >&2; exit 2; }
       SETTINGS="$2"; shift 2 ;;
+    --format)
+      [[ $# -ge 2 && ( "$2" == text || "$2" == json ) ]] || { echo "loop-sync: --format needs text or json" >&2; exit 2; }
+      FORMAT="$2"; shift 2 ;;
     *) echo "loop-sync: unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
@@ -48,9 +54,23 @@ if [[ ! -r "$REGISTRY" ]]; then echo "loop-sync: cannot read registry: $REGISTRY
 REG_DIR="$(cd "$(dirname "$REGISTRY")" && pwd)"
 
 VIOLATIONS=0
-green()  { printf '%s\n' "$1"; }
-yellow() { printf '%s\n' "$1"; }
-red()    { printf '%s\n' "$1"; VIOLATIONS=$((VIOLATIONS+1)); }
+JSON=0; [[ "$FORMAT" == json ]] && JSON=1
+jstr() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\t'/\\t}"; s="${s//$'\n'/\\n}"; s="${s//$'\r'/\\r}"; printf '"%s"' "$s"; }
+ROWS_JSON=""; CUR_NAME=""; CUR_STATUS=""; CUR_CHECKS=""; NOTES_JSON=""
+emit() {  # verdict line: text mode prints the line; json mode records it under the current row
+  if (( ! JSON )); then printf '%s\n' "$2"; return; fi
+  local m="${2#"${2%%[![:space:]]*}"}"; m="${m#* }"; m="${m# }"
+  local rec; rec="{\"verdict\":\"$1\",\"message\":$(jstr "$m")}"
+  if [[ -n "$CUR_NAME" ]]; then CUR_CHECKS+="${CUR_CHECKS:+,}$rec"; else NOTES_JSON+="${NOTES_JSON:+,}$rec"; fi
+}
+flush_row() {
+  [[ -n "$CUR_NAME" ]] || return 0
+  ROWS_JSON+="${ROWS_JSON:+,}{\"loop\":$(jstr "$CUR_NAME"),\"status\":$(jstr "$CUR_STATUS"),\"verdicts\":[$CUR_CHECKS]}"
+  CUR_NAME=""; CUR_CHECKS=""
+}
+green()  { emit ok "$1"; }
+yellow() { emit warn "$1"; }
+red()    { emit dead "$1"; VIOLATIONS=$((VIOLATIONS+1)); }
 
 # systemd usable? Needs the binary AND a reachable user manager. Otherwise unit checks are
 # "not checkable" (a container, CI runner, or non-systemd OS is not a wiring failure).
@@ -124,17 +144,19 @@ ROWS="$(awk -F'|' '
   }
 ' "$REGISTRY")"
 
-echo "loop-sync — wiring check (host: $HOST)"
-echo "registry: $(basename "$REGISTRY")"
-if (( ! SYSTEMD_OK )); then echo "note: no usable systemd user manager here; timer/service checks are 'not checkable'"; fi
-echo
+if (( ! JSON )); then
+  echo "loop-sync — wiring check (host: $HOST)"
+  echo "registry: $(basename "$REGISTRY")"
+  if (( ! SYSTEMD_OK )); then echo "note: no usable systemd user manager here; timer/service checks are 'not checkable'"; fi
+  echo
+fi
 
 DEAD_ROWS=0
 ROW_COUNT=0
 if [[ -n "$ROWS" ]]; then
   while IFS=$'\t' read -r name hosts check status; do
     ROW_COUNT=$((ROW_COUNT+1))
-    echo "  $name"
+    if (( JSON )); then flush_row; CUR_NAME="$name"; CUR_STATUS="$status"; else echo "  $name"; fi
     # status marker (the registry's own claim): a leading ⛔ is a documented-dead row.
     [[ "$status" == ⛔* ]] && DEAD_ROWS=$((DEAD_ROWS+1))
 
@@ -169,11 +191,20 @@ if [[ -n "$ROWS" ]]; then
   done <<<"$ROWS"
 fi
 if (( ROW_COUNT == 0 )); then yellow "  ⚠️  no registry rows found (expected a table with a STATUS column)"; fi
-echo
-echo "Legend: ✅ wired · ⚠️ warning / not checkable / skipped · ⛔ dead (fix the unit, or the registry row)"
+flush_row
+if (( ! JSON )); then
+  echo
+  echo "Legend: ✅ wired · ⚠️ warning / not checkable / skipped · ⛔ dead (fix the unit, or the registry row)"
+fi
 
 # --strict: a row that self-documents as dead (STATUS starts with ⛔) is also a violation. Counted
 # silently so output is the same with and without --strict.
 if (( STRICT )); then VIOLATIONS=$((VIOLATIONS + DEAD_ROWS)); fi
+if (( JSON )); then
+  sd=false; (( SYSTEMD_OK )) && sd=true
+  printf '{"host":%s,"registry":%s,"systemd":%s,"strict":%s,"notes":[%s],"rows":[%s],"violations":%d}\n' \
+    "$(jstr "$HOST")" "$(jstr "$(basename "$REGISTRY")")" "$sd" "$( (( STRICT )) && echo true || echo false )" \
+    "$NOTES_JSON" "$ROWS_JSON" "$VIOLATIONS"
+fi
 if (( STRICT && VIOLATIONS > 0 )); then exit 1; fi
 exit 0

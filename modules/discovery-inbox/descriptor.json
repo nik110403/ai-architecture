@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "module": "discovery-inbox",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {"identifier": "core-contracts", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "stewardship", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "state-adapters", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "knowledge-adapters", "version": "1.0.0", "status": "declared-untested"}
+  ],
+  "schemas": ["status"]
+}

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "event": {"required": ["event_id", "kind", "occurred_at", "subject"], "types": {"event_id": "string", "kind": "string", "occurred_at": "string", "subject": "string"}, "values": {}},
+  "result": {"required": ["event_id", "outcome", "evidence", "finished_at"], "types": {"event_id": "string", "outcome": "string", "evidence": "evidence-list", "finished_at": "string"}, "values": {"outcome": ["succeeded", "failed", "unsupported"]}},
+  "status": {"required": ["subject", "state", "observed_at", "reason"], "types": {"subject": "string", "state": "string", "observed_at": "string", "reason": "string"}, "values": {"state": ["planned", "partial", "available", "unavailable", "unsupported"]}}
+}

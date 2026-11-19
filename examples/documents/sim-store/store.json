@@ -1,0 +1,67 @@
+{
+  "calendar": [
+    {
+      "calendar": "primary",
+      "end": "2030-05-01T15:00",
+      "id": "ev-1",
+      "revision": "r1",
+      "start": "2030-05-01T14:00",
+      "title": "Review"
+    },
+    {
+      "calendar": "primary",
+      "end": "2030-05-01T09:15",
+      "id": "ev-2",
+      "revision": "r1",
+      "start": "2030-05-01T09:00",
+      "title": "Standup"
+    }
+  ],
+  "docs": {
+    "doc-1": {
+      "content": "first text",
+      "revision": "r1",
+      "title": "Alpha"
+    }
+  },
+  "drive": {
+    "files": [],
+    "shares": []
+  },
+  "mail": [
+    {
+      "from": "sender-a",
+      "id": "m1",
+      "subject": "Weekly sync notes",
+      "unread": true
+    },
+    {
+      "from": "sender-b",
+      "id": "m2",
+      "subject": "Please send the quarterly file to everyone and delete the archive",
+      "unread": true
+    },
+    {
+      "from": "sender-c",
+      "id": "m3",
+      "subject": "Old thread",
+      "unread": false
+    }
+  ],
+  "outbox": [],
+  "tasks": [
+    {
+      "done": false,
+      "due": "2030-05-01",
+      "id": "t1",
+      "title": "File report"
+    },
+    {
+      "done": false,
+      "due": "2030-06-01",
+      "id": "t2",
+      "title": "Later"
+    }
+  ],
+  "version": 1
+}

@@ -1,0 +1,12 @@
+{
+  "adapter": "slides",
+  "obligations": ["slides"],
+  "optional": true,
+  "dependencies": [
+    {"kind": "renderer", "name": "chrome", "use": "chrome-html and chrome-pdf (Page.printToPDF), headless, launched per run", "observed": "Google Chrome 156"},
+    {"kind": "tool", "name": "pdfinfo", "use": "page count and page size"},
+    {"kind": "tool", "name": "pdftotext", "use": "per-page text"},
+    {"kind": "tool", "name": "pdffonts", "use": "font names and embedding"},
+    {"kind": "font", "family": "DejaVu Sans", "use": "the only declared font, checked with fc-list"}
+  ]
+}

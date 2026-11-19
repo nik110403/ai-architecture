@@ -1,0 +1,17 @@
+{
+  "seats": {
+    "local-echo": {"harness": "local-command", "command": ["python3", "-c", "import sys; print(len(sys.stdin.read()))"]},
+    "claude-main": {"harness": "claude-code", "model": "MODEL_NAME", "effort": "high", "env_allow": ["ANTHROPIC_API_KEY"], "max_budget_usd": 1},
+    "opencode-main": {"harness": "opencode", "model": "PROVIDER/MODEL", "effort": "high", "env_allow": ["PROVIDER_API_KEY"]}
+  },
+  "roles": {
+    "researcher": ["local-echo", "claude-main"],
+    "tribune": ["opencode-main", "local-echo"],
+    "builder": ["local-echo"]
+  },
+  "permit": ["researcher", "tribune", "builder"],
+  "allow_write": false,
+  "allow_spend": false,
+  "timeout_seconds": 600,
+  "worktree_root": "/absolute/path/for/worker/worktrees"
+}

@@ -1,15 +1,19 @@
 <p><picture><source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg"><img src="assets/banner-light.svg" alt="ai-architecture" width="100%"></picture></p>
 
-**My Claude Code and OpenCode setup, made generic: AI agents that plan, build, check each other and hand off like a small engineering team.**
+**My entire philosophy for my Claude Code setup.**
 
 [Install](INSTALL.md) · [Catalog](CATALOG.md) · [Architecture](ARCHITECTURE.md) · [How it works](#how-the-system-works) · [Site](https://nikkhosravipour.com)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.4.2--preview-57534e?style=flat)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8c2f1b?style=flat)](LICENSE) [![Docs: CC BY 4.0](https://img.shields.io/badge/docs-CC%20BY%204.0-57534e?style=flat)](LICENSE-docs) [![Version](https://img.shields.io/badge/version-0.5.0--preview-57534e?style=flat)](CHANGELOG.md)
 
-I run most of my software and research work through coding agents. Left alone, they drift: the scope widens,
-the agent grades its own homework, a destructive command slips through, and everything it knew dies when the
-context fills up. This repository is the machinery I built against that, taken out of my private setup and
-made to run on anyone's machine.
+I run advanced software and AI setups, built around the current standard of how to best use Claude Code. From
+advanced agents and skills to best-effort security checks, this setup is trying to combine all of the frontier level
+LLM abilities. Left alone, coding agents drift: the scope widens, the agent grades its own homework, a destructive
+command slips through, and everything it knew dies when the context fills up. I have collected information on how
+to best set up an AI system that checks itself and works as efficiently as possible. All of these ideas are now
+applied to this repo in an attempt to make it more accessible to other people, so they don't have to start from
+scratch. The system is based on my personal workflows, which means a lot of it is centered around research and
+personal projects.
 
 ```mermaid
 flowchart LR
@@ -38,9 +42,10 @@ in its own git worktree, fenced to the files its item declares. The orchestrator
 and re-runs the verify loop on the merged tree.
 
 **4. Nobody grades their own work.** A fresh-context `verifier` checks each item against its spec. High-stakes
-changes also get a `security-reviewer` and a **tribunal**: three or more judges with different lenses review
-sealed, then argue in a shared transcript until they stop finding things. A `refuter` tries to disprove each
-finding before anyone acts on it.
+changes also get a `security-reviewer` plus one `tribune` seat with a different lens; fixes are dispatched from
+the seats' findings. A full **tribunal** (three or more judges with different lenses reviewing sealed, then arguing
+in a shared transcript) is for high-stakes decisions and plans. A `refuter` tries to disprove SEV1 and SEV2 findings before
+anyone acts on them (at HIGH stakes).
 
 **5. Guards catch common mistakes.** An opt-in hook plugin is a best-effort tripwire against accidental destructive shell commands (not a security boundary; see its Known limitations), stops a session from
 ending while a required review is missing, and nudges once when a session ends with a tracker that has no current Resume
@@ -84,6 +89,39 @@ the next one, so the guard was dropped from the plugin; the documentation now re
 no shell access at all. That loop — build, independent review, refute, fix, and stopping when patching stops
 converging — is what the system is for.
 
+## Use with your AI
+
+You don't have to take all of it, or anything at all. Point your AI at this repository and ask what is worth
+taking for you. An idea copied into your own instructions counts as much as an installed skill. This prompt
+keeps your AI read-only:
+
+```text
+Read this repository, starting with README.md, ARCHITECTURE.md and CATALOG.md, and
+compare it with how I work today. Do not install, copy or change anything. Tell me
+the three to five ideas or components most worth taking for me, why each one fits,
+and what adopting it would cost. Ideas I could write into my own instructions count
+as much as files I could install. Say which ones you would skip and why.
+```
+
+To adopt what you picked, you do not need a plugin. Clone or download the repository, open your Claude Code
+session in the folder, and give your agent the prompt below. It follows the [AI-led adoption guide](adapters/adopt.md): it asks
+which scope it may look at, inventories what you already have, and only adds. It never replaces your files, and
+it changes hooks or settings only after you approve each exact diff. It leaves a receipt that says how to undo
+everything.
+
+```text
+Adopt the AI Architecture collection into my setup by following its adoption guide,
+adapters/adopt.md, step by step. Before you change anything, ask me which scope you
+may look at (my user-level Claude Code directory, or this project), then take an
+inventory of that scope and write it down. Only add things: never replace, delete or
+overwrite a file of mine. The only change allowed to a file that already exists is one
+marked block appended to it, and only after you listed it for me and backed the file up.
+Leave hooks and settings alone unless I say yes to each exact hook or settings change
+after you show me the diff. When you finish, leave a receipt that says what you installed, what you could not, and how to undo it.
+```
+
+The plugin route remains available below and in [INSTALL.md](INSTALL.md).
+
 ## Install
 
 ```text
@@ -102,13 +140,15 @@ root-level templates and tools; its T2+ execution uses companion skills and conf
 2. **Rules that matter are hooks, not prompts.** An instruction a model can forget is a suggestion.
 3. **Humans approve strategy, agents decide technique.** Gates sit on scope, money, publishing and taste; merges
    and fixes go through a reviewer instead of a person.
-4. **Ceremony scales with stakes.** A typo fix gets a test run; a security boundary gets a tribunal.
-5. **Guards fail closed and are configured at user level.** The plugin reads its configuration only from your user scope, so a repository cannot loosen it through this plugin's config files. Claude Code settings are outside the plugin's control: a project's Claude Code settings file (`<project>/.claude/settings.json`) can still set `disableAllHooks`, `enabledPlugins: false` or `env` values.
+4. **Ceremony scales with stakes.** A typo fix gets a test run; a security boundary gets a `security-reviewer` plus a `tribune` seat with a different lens, and a high-stakes plan gets a full tribunal.
+5. **Guards are tripwires with accepted allow-classes, configured at user level.** Static text checks catch common destructive command forms; they are not a sandbox and omit declared classes. The plugin reads its configuration only from your user scope, so a repository cannot loosen it through this plugin's config files. Claude Code settings are outside the plugin's control: a project's Claude Code settings file (`<project>/.claude/settings.json`) can still set `disableAllHooks`, `enabledPlugins: false` or `env` values.
 6. **Standard library only.** The tools need bash and Python 3, so they run offline and don't rot.
 
 ## Limits
 
-This is a preview. The workflows were built and used on one Linux machine; other operating systems are untested.
+Preview. Built and used on one Linux machine with Claude Code and OpenCode; other systems are untested, apart from one adoption smoke run on Windows 11 that did not pass every check. No capability is marked available: 59 run from this collection with fakes or declared tools, 13 need something not included. Adoption was rehearsed once: a Claude Code agent followed adapters/adopt.md in this release onto a test home we prepared with its own CLAUDE.md, settings and skills. A separate checker found every existing file unchanged outside marked blocks, a second run changed nothing, and rollback restored the starting state. 0 of 14 chosen capabilities passed their check, run by the same agent: 8 were installed but not checked, and 6 were marked unavailable. Earlier runs, including the failed ones, are listed in examples/adoption/REHEARSAL.md. Hooks were not rehearsed. No outside person has adopted it yet.
+
+On Windows the tools need bash, Python 3 and GNU coreutils; WSL is closest to what was tested.
 Skills are instructions an agent follows, so results depend on the model. The guard hooks rely on Claude Code's
 hook payloads and transcript format, which can change between versions. See [COVERAGE.md](COVERAGE.md) for what
 has been tested and how.

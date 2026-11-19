@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "loops": [
+    {"id": "demo-missing", "hosts": ["any"], "status": "live", "checks": [{"kind": "timer", "target": "demo-missing.timer"}]}
+  ]
+}

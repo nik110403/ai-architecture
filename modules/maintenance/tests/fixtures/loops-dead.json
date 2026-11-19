@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "loops": [
+    {"id": "demo-dead", "hosts": ["any"], "status": "dead", "checks": [{"kind": "none", "target": ""}]}
+  ]
+}

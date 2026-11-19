@@ -1,0 +1,5 @@
+{"providers": [
+  {"name": "stub",
+   "argv": ["{python}", "-B", "{root}/modules/media/tests/fixtures/fake_provider.py"],
+   "describe_argv": ["{python}", "-B", "{root}/modules/media/tests/fixtures/fake_provider.py", "--describe"]}
+]}

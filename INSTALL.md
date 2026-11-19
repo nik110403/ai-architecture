@@ -1,6 +1,13 @@
 # Install
 
-This release is `0.4.2-preview`. There are three separate things you can install, and only the first
+## Let your existing AI adopt it (no plugin required)
+
+For selective or whole-system adoption without native plugin discovery, start with the
+[AI-led adoption guide](adapters/adopt.md). It tells an AI how to inspect only the relevant setup,
+adapt compatible instructions and assets, preserve local policy, and leave a reversible receipt.
+The selective dependency and harness-specific details remain in [Selective skill adoption](#selective-skill-adoption).
+
+This release is `0.5.0-preview`. There are three separate things you can install, and only the first
 is on by default in the sense that it adds instructions rather than behaviour. What each capability does and
 does not cover is in [CAPABILITIES.md](CAPABILITIES.md); what has been tested is in [COVERAGE.md](COVERAGE.md).
 
@@ -84,6 +91,7 @@ of worker models by weighted pool is a separate, opt-in module. Both are optiona
    shim. The exact commands are in [adapters/opencode.md](adapters/opencode.md); the overview is in
    [opencode/README.md](opencode/README.md).
 3. Optional rotation: [opencode/rotation/README.md](opencode/rotation/README.md).
+4. Optional continuity runtime (usage, resume, freeze, read-only hub): [opencode/runtime/README.md](opencode/runtime/README.md); tests: `bash opencode/runtime/tests/run.sh` (needs bun).
 
 To print an OpenCode `agent` block generated from this collection's role files:
 `python3 opencode/agents/opencode-agents-sync`.

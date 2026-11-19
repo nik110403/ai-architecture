@@ -13,7 +13,7 @@
 #   4. isolated memory     zero outbound AND zero inbound [[links]]    -> info
 #   5. long index line     a `- [Title](file) — hook` line > 120 chars -> info
 # Only index mismatch is drift-class (marked with a literal ⛔); the rest are informational.
-# Editor sync-conflict files (*sync-conflict*) and broken symlinks are not scanned.
+# Editor sync-conflict files (*sync-conflict*) and symlinked notes (broken or not) are not scanned or indexed.
 #
 # Report-only: the scan always exits 0. Usage errors exit 2.
 #
@@ -167,11 +167,23 @@ validate_mem_dir() {  # dir
   [[ -n "$slug" && "$slug" != */* ]] || return 1  # exactly one path component before /memory
 }
 
+# list_notes <dir> — fill NOTES with the plain *.md note names of <dir> (no MEMORY.md, no sync
+# conflicts, no symlinks). NUL-delimited so a name with a newline cannot be split into a second,
+# attacker-chosen name; names holding any control character are skipped and put in SKIPPED_NAMES.
+list_notes() {
+  local dir="$1" f
+  NOTES=(); SKIPPED_NAMES=()
+  while IFS= read -r -d '' f; do
+    if [[ "$f" == *[[:cntrl:]]* ]]; then SKIPPED_NAMES+=("$f"); else NOTES+=("$f"); fi
+  done < <(find "$dir" -maxdepth 1 -name '*.md' ! -name 'MEMORY.md' ! -name '*sync-conflict*' ! -type l -printf '%f\0' | sort -z)
+}
+
 fix_index_dir() {  # dir
   local dir="$1" index files=() f path slug name desc title line lock_fd
   index="$dir/MEMORY.md"
   [[ -d "$dir" ]] || return 0
-  mapfile -t files < <(find "$dir" -maxdepth 1 -name '*.md' ! -name 'MEMORY.md' ! -name '*sync-conflict*' ! -xtype l -printf '%f\n' | sort)
+  list_notes "$dir"; files=("${NOTES[@]}")
+  for f in "${SKIPPED_NAMES[@]}"; do printf -- '- ⚠️ %s/%q — control character in filename, skipped\n' "$dir" "$f"; done
   (( ${#files[@]} == 0 )) && return 0
   if [[ ! -f "$index" ]]; then
     echo "- ⛔ $dir — no MEMORY.md, cannot fix-index"
@@ -195,6 +207,7 @@ fix_index_dir() {  # dir
       continue
     fi
     path="$dir/$f"
+    if [[ -L "$path" ]]; then echo "- ⚠️ $dir/$f — became a symlink, skipped"; continue; fi
     name="$(frontmatter_field "$path" name)"
     desc="$(frontmatter_field "$path" description)"
     if [[ -z "$name" || -z "$desc" ]]; then
@@ -356,13 +369,14 @@ noindex_list=()
 stale_list=()
 isolated_list=()
 longidx_list=()
+skipped_list=()
 
 for dir in "${MEMDIRS[@]}"; do
   [[ -d "$dir" ]] || continue
-  mapfile -t files < <(find "$dir" -maxdepth 1 -name '*.md' ! -name 'MEMORY.md' ! -name '*sync-conflict*' ! -xtype l -printf '%f\n' | sort)
-  (( ${#files[@]} == 0 )) && continue
-
   dirlabel="$(basename "$(dirname "$dir")")"
+  list_notes "$dir"; files=("${NOTES[@]}")
+  for f in "${SKIPPED_NAMES[@]}"; do skipped_list+=("$dirlabel/${f//[[:cntrl:]]/?}: control character in filename, skipped"); done
+  (( ${#files[@]} == 0 )) && continue
 
   declare -A exists=()
   for f in "${files[@]}"; do exists["${f%.md}"]=1; done
@@ -374,6 +388,7 @@ for dir in "${MEMDIRS[@]}"; do
     total_files=$((total_files + 1))
     slug="${f%.md}"
     path="$dir/$f"
+    [[ -L "$path" ]] && { skipped_list+=("$dirlabel/$f: became a symlink, skipped"); total_files=$((total_files - 1)); continue; }
 
     # 1. wikilinks — dangling + outbound/inbound tallies for check 5
     mapfile -t links < <(grep -oE '\[\[[^]]+\]\]' "$path" 2>/dev/null | sed -E 's/^\[\[|\]\]$//g' | sort -u)
@@ -393,7 +408,9 @@ for dir in "${MEMDIRS[@]}"; do
 
   # 2. index mismatch
   index="$dir/MEMORY.md"
-  if [[ -f "$index" ]]; then
+  if [[ -L "$index" ]]; then
+    skipped_list+=("$dirlabel/MEMORY.md: symlinked index, not read")
+  elif [[ -f "$index" ]]; then
     for f in "${files[@]}"; do
       grep -qF "]($f)" "$index" 2>/dev/null || index_list+=("$dirlabel/$f — not referenced in MEMORY.md")
     done
@@ -462,6 +479,14 @@ if (( ${#isolated_list[@]} == 0 )); then
   echo "- ✅ no isolated memories"
 else
   for l in "${isolated_list[@]}"; do echo "- ℹ️ $l"; done
+fi
+echo
+
+echo "### Skipped (symlinks / unsafe names, never read)"
+if (( ${#skipped_list[@]} == 0 )); then
+  echo "- ✅ nothing skipped"
+else
+  for l in "${skipped_list[@]}"; do echo "- ⚠️ $l"; done
 fi
 echo
 

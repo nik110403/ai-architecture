@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "loops": [
+    {"id": "demo-ok", "hosts": ["any"], "status": "live",
+     "checks": [{"kind": "timer", "target": "demo-ok.timer"}, {"kind": "service", "target": "demo-ok.service"}]},
+    {"id": "demo-idle", "hosts": ["any"], "status": "live",
+     "checks": [{"kind": "timer", "target": "demo-idle.timer"}]},
+    {"id": "demo-old", "hosts": ["any"], "status": "retired",
+     "checks": [{"kind": "timer", "target": "demo-old.timer"}],
+     "retired": {"date": "2026-01-01", "reason": "superseded"}}
+  ]
+}

@@ -16,6 +16,7 @@ mkdir -p "$HOME"
 unset AIARCH_CONFIG AIARCH_GATES_ROOT
 export PYTHONDONTWRITEBYTECODE=1
 rc=0
+structural_skipped=0
 echo "== agents generator =="
 SYNC="$OC/agents/opencode-agents-sync"
 python3 "$SYNC" --agents-dir "$HERE/fixtures/agents" --out "$TMP/fixture.json" || rc=1
@@ -56,6 +57,13 @@ PY
 echo "== bridge unit tests =="
 if command -v bun >/dev/null 2>&1; then
 	bun "$HERE/bridge.test.ts" || rc=1
+	bun "$HERE/u11-bridge.test.ts" || rc=1
+	bash "$HERE/parser-env.sh" || rc=1
+	bash "$HERE/parser-env.test.sh" || rc=1
+	# --no-install: bun must never auto-fetch an unpinned parser; the pinned one comes from AIARCH_PARSER_DIR or the tree
+	bun --no-install "$HERE/u11-structural.test.ts" 2>&1 | tee "$TMP/structural.out"
+	[ "${PIPESTATUS[0]}" -eq 0 ] || rc=1
+	grep -q '^SKIPPED structural corpus' "$TMP/structural.out" && structural_skipped=1
 	AIARCH_BRIDGE_EVENTS_DIR="$TMP/bridge-events" bun "$HERE/review-integration.test.ts" || rc=1
 	python3 -B "$OC/../plugins/gates/tests/run_hooks.py" --bridge-events "$TMP/bridge-events" || rc=1
 else
@@ -63,5 +71,10 @@ else
 	echo "OPENCODE TESTS INCOMPLETE"
 	exit 1
 fi
-if [ "$rc" -eq 0 ]; then echo "OPENCODE TESTS PASSED"; else echo "OPENCODE TESTS FAILED"; fi
+if [ "$structural_skipped" -eq 1 ]; then
+	echo "WARNING: the structural parser acceptance (u11-structural.test.ts, the only auto-approve component) was SKIPPED: nothing verified it." >&2
+	echo "WARNING: set AIARCH_PARSER_DIR (install: bun add --cwd \"\$AIARCH_PARSER_DIR\" web-tree-sitter@0.25.10 tree-sitter-bash@0.25.0)." >&2
+fi
+if [ "$rc" -eq 0 ] && [ "$structural_skipped" -eq 1 ]; then echo "OPENCODE TESTS PASSED WITH STRUCTURAL PARSER ACCEPTANCE SKIPPED (set AIARCH_PARSER_DIR)"
+elif [ "$rc" -eq 0 ]; then echo "OPENCODE TESTS PASSED"; else echo "OPENCODE TESTS FAILED"; fi
 exit "$rc"

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "description": "The product record: the problem a surface answers and the decisions already taken. Unknown keys are refused.",
+  "type": "object",
+  "fields": {
+    "id": {"type": "string", "required": true},
+    "problem": {"type": "string", "required": true},
+    "users": {"type": "list", "item": {"type": "string"}, "required": true},
+    "decisions": {"type": "list", "item": {"type": "string"}, "required": true}
+  }
+}

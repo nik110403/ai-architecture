@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "note": "Narrow, re-authored local checks. Each has an attributed upstream slot; nothing is copied from the upstream and the slot never changes a result.",
+  "core": ["overflow", "required-present", "interaction", "external-request"],
+  "adapters": {
+    "accessibility": {"checks": ["a11y-name", "contrast", "keyboard-reach", "focus-visible"], "always_on": true,
+                      "upstream": "web-design-guidelines"},
+    "motion": {"checks": ["reduced-motion"], "requires": "record.motion", "upstream": "emil-design-eng"},
+    "style": {"checks": ["tokens"], "requires": "record.tokens", "upstream": "impeccable"}
+  },
+  "upstream_states": ["unavailable", "present-untested"],
+  "upstream_effect": "generic contract only",
+  "slots": [
+    {"id": "ui-ux-design", "role": "front door sequence", "source": "operator skill library", "license": "MIT"},
+    {"id": "web-design-guidelines", "role": "accessibility adapter", "source": "third-party skill", "license": "unresolved"},
+    {"id": "emil-design-eng", "role": "motion adapter", "source": "third-party skill", "license": "unresolved"},
+    {"id": "impeccable", "role": "style adapter", "source": "third-party skill", "license": "Apache-2.0"},
+    {"id": "taste-skill", "role": "taste reference (not adopted)", "source": "third-party skill", "license": "unresolved"},
+    {"id": "frontend-reference-kit", "role": "interaction reference", "source": "operator wrapper of a public upstream", "license": "MIT"}
+  ]
+}

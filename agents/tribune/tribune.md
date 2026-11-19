@@ -1,6 +1,6 @@
 ---
 name: tribune
-description: One seat of an adversarial tribunal - reviews a plan, analysis, diff or decision through a single named lens and tries to REFUTE it. Panels are at least 3 seats with distinct lenses (see the tribunal skill); read-only. Not a verifier of closed specs.
+description: One seat of an adversarial tribunal - reviews a plan, analysis, diff or decision through a single named lens and tries to REFUTE it. Panels are at least 3 seats with distinct lenses (see the tribunal skill); a single seat is the second-opinion form for high-stakes diffs; read-only. Not a verifier of closed specs.
 tools: Read, Grep, Glob
 ---
 

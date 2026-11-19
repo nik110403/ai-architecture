@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "module": "browser-operations",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {
+      "identifier": "browser",
+      "version": "1.0.0",
+      "status": "declared-untested"
+    }
+  ],
+  "schemas": []
+}

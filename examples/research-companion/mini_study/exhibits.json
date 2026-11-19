@@ -1,0 +1,16 @@
+{
+  "exhibits": [
+    {
+      "id": "table1",
+      "file": "06_tables/table1.csv",
+      "sha256": "4d1337db39d610a1583b7533d8e60429d4e83a97bea0da35b5dfdf165004c52f",
+      "produced_by": "03_code/run_all.py"
+    },
+    {
+      "id": "fig1",
+      "file": "05_figures/fig1.txt",
+      "sha256": "795514d73b40fa166528da0330d407297e11ed9bf39e381240cb37d61fd4fbf2",
+      "produced_by": "03_code/run_all.py"
+    }
+  ]
+}

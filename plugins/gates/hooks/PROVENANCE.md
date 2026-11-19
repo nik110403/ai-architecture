@@ -72,6 +72,7 @@ Deltas:
 - default `ui_builder_roles` is `["design-builder"]`, as in the source (dispatching it counts as a UI edit)
 - messages no longer point at a personal router document
 - telemetry emitter import removed (the telemetry library is not part of this plugin)
+- opt-in artifact-bound review receipts (`review_receipts_dir`, `lib/receipts.py`) added; they only narrow the gate (the role-ran proof stays mandatory); unset, output is byte-identical to the source behaviour (golden-tested)
 
 ## clean-state-check
 
@@ -106,7 +107,7 @@ Source-sha256: eb5c59541bf30610b7250e9745e315b6cd45f399e2aa62132c89227c11a9060a
 State: re-authored
 
 Deltas:
-- new shared wrapper written for this plugin: runs each gate hook under wall-clock caps (stdin copy plus guard, about 8.2 s worst case) and fails closed (deny / block / systemMessage by hook kind) on timeout, crash, non-JSON output, or missing python3/timeout; the listed source is only the thin wrapper whose fail-closed shape it follows
+- new shared wrapper written for this plugin: runs each gate hook under wall-clock caps (stdin copy plus guard, about 8.2 s worst case) and fails closed (deny / block / systemMessage by hook kind) on timeout, crash, output that is not one complete JSON object (validated whole by a bounded `python3 -I -c json.loads`), or missing python3/timeout; the listed source is only the thin wrapper whose fail-closed shape it follows
 
 ## lib/trackers.py
 
@@ -137,6 +138,7 @@ State: adapted
 
 Deltas:
 - runner points at the plugin hook and a test config instead of an installed hook; fixture commands use `@HOME@` instead of a real home path; personal folder names replaced by generic ones (`vault`, `workspace`, ...) that the test config marks as protected
+- U11 hardening, new code: line continuations are joined in de-escaping (a comment still ends at its newline); asks on a pipe into a shell, on a variable/`$(...)`/backtick in command position, and on `alias` definitions; a shared bypass corpus replays through this guard and the OpenCode tree-sitter classifier
 - fixture table ported 1:1 (143 cases from the private operator repository's bin/tests/fixtures/destructive-guard.json) plus 9 added cases; latency limit relaxed to a sanity bound on wall time
 - added all 35 ASK/near-miss cases from the pinned staged test (source SHA-256 `95bc9e8150833301ef6e6e62b689d6c46ee4840d8165893cd068dc389a4b9293`), plus 10 cases covering long flags, SQL schema deletion, DENY precedence and heredoc data; commands remain JSON input only, and the existing rc-checked subprocess helper is retained
 
@@ -152,6 +154,7 @@ Deltas:
 
 ## Deltas
 
+- New in U11 (no source program): plugins/gates/tools/integrity.py (guard-integrity manifest, install with backup, rollback) and hooks/lib/receipts.py (receipt verification) are written for this plugin; the review and isolation modules are separate.
 - Applies to the whole plugin: no telemetry, no personal paths or names, configuration from user scope only, plus the section-level deltas above. No fail-closed check of a source program was removed; the behaviour change that makes the plugin stricter than its source is the missing-`python3` denial.
 
 ## Not ported

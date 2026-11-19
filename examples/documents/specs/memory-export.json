@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "files": {
+    "a.md": "alpha imported\n",
+    "b.md": "beta new\n",
+    "notes/c.md": "gamma new\n"
+  }
+}

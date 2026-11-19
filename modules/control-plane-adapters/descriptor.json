@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "module": "control-plane-adapters",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {"identifier": "core-contracts", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "autopilot", "version": "1.0.0", "status": "declared-untested"}
+  ],
+  "schemas": ["status"]
+}

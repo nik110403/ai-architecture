@@ -69,7 +69,7 @@ builder and critic pair.
 Routing is a table, not a mood. A request is classified by task kind and by stakes, and the table says which
 role handles it and what review it owes. A decided, non-UI change goes to the implementer. High-stakes
 changes (cryptography, migrations, concurrency, authorization, money, security boundaries) add a
-security review and a tribunal. Hooks check the table where a prompt alone would be forgotten (see
+`security-reviewer` plus one `tribune` seat with a different lens. Hooks check the table where a prompt alone would be forgotten (see
 [section 5](#5-guards)).
 
 In this repo: [`rules/dispatch-router.md`](rules/dispatch-router.md),
@@ -91,8 +91,8 @@ done. `Gate: human` is reserved for decisions only a person should make: scope, 
 product taste. Merges and technical fixes are never human gates; they go through a reviewer instead.
 
 The **stakes dial** sets review depth per item: LOW gets deterministic checks only, STANDARD gets one review
-pass and at most one fix round, HIGH gets the full ladder (security review and tribunal, refutation of
-serious findings, at most two rounds). Review rounds are counted per lineage of an item, so a repair does not
+pass and at most one fix round, HIGH gets the full ladder (for a diff: a `security-reviewer` plus one `tribune` seat with a different lens; a `refuter` checks SEV1/SEV2
+findings; at most two rounds; a full tribunal is for HIGH or CONSTITUTIONAL decisions and plans). Review rounds are counted per lineage of an item, so a repair does not
 buy a fresh budget. `plancheck` lints a pack: missing fields, dangling `Needs:`, items without a verify
 command.
 
@@ -123,7 +123,7 @@ The maker never grades its own work.
 - **verifier**: a fresh-context agent that checks an item against its spec and runs its verify command.
 - **refuter**: takes one finding and tries to disprove it, so effort is not spent on false alarms.
 - **security-reviewer**: reviews diffs in the sensitive classes above, read-only.
-- **tribunal**: for high stakes. Three or more judges with different lenses (and, where available, from
+- **tribunal**: for high-stakes decisions and plans (a high-stakes diff gets a `security-reviewer` plus one `tribune` seat with a different lens; fixes are dispatched from their findings). Three or more judges with different lenses (and, where available, from
   different model families) each write a **sealed** opening review without seeing the others. They are then
   put in a shared transcript file and discuss until they stop finding new things. The orchestrator, acting as
   scribe, writes the final report. The transcript is append-only and hash-chained, written only by the
@@ -209,12 +209,12 @@ The loops I run:
 Timers are plain systemd user units. A generic example:
 
 ```ini
-# ~/.config/systemd/user/morning-digest.service
+# $XDG_CONFIG_HOME/systemd/user/morning-digest.service
 [Service]
 Type=oneshot
 ExecStart=%h/bin/morning-digest
 
-# ~/.config/systemd/user/morning-digest.timer
+# $XDG_CONFIG_HOME/systemd/user/morning-digest.timer
 [Timer]
 OnCalendar=*-*-* 06:00
 Persistent=true

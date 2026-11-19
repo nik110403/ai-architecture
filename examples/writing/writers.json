@@ -1,0 +1,9 @@
+{
+  "writers": {
+    "stub": {
+      "argv": ["python3", "./stub_writer.py"],
+      "registers": ["correspondence", "chat", "essay", "personal"],
+      "destinations": ["file", "letter"]
+    }
+  }
+}

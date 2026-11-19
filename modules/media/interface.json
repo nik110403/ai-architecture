@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "exit_codes": {"0": "ok", "1": "inspection failed or tampered", "2": "refused or invalid",
+                 "3": "renderer or tool unavailable", "4": "provider refused"},
+  "obligations": [
+    {"id": "slides", "adapter": "slides", "registry": "47", "upstream": ["deck-runtime"]},
+    {"id": "infographic", "adapter": "visuals", "registry": "48", "upstream": ["infographic-render"]},
+    {"id": "visual-plan", "adapter": "visuals", "registry": "48", "upstream": ["plan-local-files", "hosted-plan-service"]},
+    {"id": "visual-recap", "adapter": "visuals", "registry": "48", "upstream": ["plan-local-files", "hosted-plan-service"]},
+    {"id": "system-atlas", "adapter": "visuals", "registry": "48", "upstream": ["atlas-build"]},
+    {"id": "video", "adapter": "video", "registry": "49", "upstream": ["remotion"]},
+    {"id": "illustration", "adapter": "illustration", "registry": "49", "upstream": ["illustration-backends"]}
+  ],
+  "blocker_classes": ["host", "provider", "policy", "not-enabled", "licence"],
+  "blocked_reasons": [
+    {"reason": "renderer unavailable: <name>", "class": "host"},
+    {"reason": "tool unavailable: <name>", "class": "host"},
+    {"reason": "font unavailable: <name>", "class": "host"},
+    {"reason": "fixture generation", "class": "host"},
+    {"reason": "inspection failed: <reason>", "class": "host"},
+    {"reason": "not enabled", "class": "not-enabled"},
+    {"reason": "no provider without network or cost configured", "class": "provider"}
+  ],
+  "blocked_renderers": {
+    "remotion": {"class": "licence", "setup": "Remotion needs an npm install (network) and a company licence for larger teams; this collection ships no copy and never installs one."},
+    "deck-runtime": {"class": "not-shipped", "setup": "The React deck runtime (a Vite app with a browser PDF driver) is a user-supplied runtime and is not shipped here; slides use the Chrome adapter instead."},
+    "playwright": {"class": "no-driver", "setup": "No Playwright driver is shipped or used; install one yourself if you want browser automation outside this module."},
+    "hosted-plan-service": {"class": "external-publication", "setup": "The hosted plan and recap publishing path sends content to an outside service; it is never called from here."},
+    "atlas-build": {"class": "not-shipped", "setup": "The operator atlas template and its build step run under a JavaScript runtime and are not shipped; the atlas adapter draws a plain SVG page instead."},
+    "infographic-render": {"class": "licence", "setup": "The third-party infographic renderer is excluded by the collection's source licence record and needs a Playwright browser install; not shipped."},
+    "plan-local-files": {"class": "not-shipped", "setup": "The upstream plan and recap local-files mode is a skill workflow, not a renderer this collection ships; the visuals adapter draws its own pages."},
+    "illustration-backends": {"class": "provider", "setup": "Every illustration backend needs network and a hosted image model (quota or a paid key). Configure a provider yourself and pass the explicit allow flags."}
+  },
+  "canvas": {"slides": [1920, 1080], "visual-plan": [1600, 1200], "visual-recap": [1400, 1100], "system-atlas": [1600, 1000]},
+  "limits": {"spec_bytes": 262144, "asset_bytes": 1048576, "prompt_bytes": 65536, "slides": 40, "stats": 12, "steps": 12,
+             "plan_files": 12, "recap_files": 14, "recap_commits": 8, "nodes": 16, "edges": 30, "loops": 4, "scenes": 8,
+             "bullets": 8, "text": 200, "video_frames": 150, "infographic_max": 2000, "video_max": [640, 360]},
+  "spec_keys": {
+    "slides": {"required": ["title", "slides"], "optional": ["font", "logo"]},
+    "infographic": {"required": ["title", "size", "stats", "bar_color"], "optional": ["logo"]},
+    "visual-plan": {"required": ["plan_id", "steps", "files"], "optional": ["logo"]},
+    "visual-recap": {"required": ["title"], "optional": ["logo"]},
+    "system-atlas": {"required": ["nodes", "edges", "loops"], "optional": ["logo"]},
+    "video": {"required": ["size", "fps", "seconds", "scenes"], "optional": ["logo"]}
+  },
+  "stable_exclude": {"keys": ["run_id", "started", "finished", "out"], "volatile_artifact_fields": ["sha256", "bytes"]}
+}

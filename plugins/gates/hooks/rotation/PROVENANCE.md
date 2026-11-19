@@ -20,6 +20,7 @@ Deltas:
 - removed: external-worker arms and the dispatch-to-job start, the effort-trial variant swap, the sandbox path narrowing, charge-id extraction and the dispatch-ledger fields, the personal default pool and log paths (the log is now opt-in via `ROTATION_LOG`)
 - `pin_arm` and `builder_arm` are header-only (before the first blank line, at most 15 lines, CRLF-normalised). Independent roles exclude the builder; duplicate `builder_arm:` lines anywhere skip rotation. A pin equal to the builder, or an independent-role pin without a builder header, is ignored; unusable pins fall back to the weighted draw.
 - the single O_APPEND, O_NOFOLLOW log write is kept
+- live drift noted 2026-11-06 (R9-U12): the installed source now hashes to `88fdfff95906947c7205a76d5336e029bb68a30e525df5e580d692e6d3999138`, so it changed after this port; not re-ported in U12, `Source-sha256` above stays the ported version. U12 added only consumer test cases for pools written by `modules/model-evaluation` reweighting (integer weights, an ignored extra `pinned` key, `pin_arm` still honoured); the hook code is unchanged
 
 ## test-model-rotate
 

@@ -1,0 +1,6 @@
+{
+  "cache": "off",
+  "cache_backend": "local",
+  "timeout_s": 5,
+  "workers": 2
+}

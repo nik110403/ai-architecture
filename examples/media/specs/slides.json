@@ -1,0 +1,6 @@
+{"title": "Quarterly review",
+ "slides": [
+  {"id": "s1", "title": "Overview", "bullets": ["Scope of the review", "Three things changed"]},
+  {"id": "s2", "title": "Results", "bullets": ["Usage grew", "Costs stayed flat"]},
+  {"id": "s3", "title": "Next steps", "bullets": ["Ship the pilot", "Review again in spring"]}
+ ]}

@@ -1,0 +1,63 @@
+{
+ "routes": [
+  {
+   "match": "api.openalex.org",
+   "body": {
+    "results": [
+     {
+      "display_name": "Alpha study",
+      "doi": "https://doi.org/10.5555/alpha",
+      "publication_year": 2021
+     },
+     {
+      "display_name": "Beta study",
+      "doi": "https://doi.org/10.5555/beta",
+      "publication_year": 2022
+     },
+     {
+      "display_name": "Gamma study",
+      "doi": "https://doi.org/10.5555/gamma",
+      "publication_year": 2020
+     }
+    ]
+   }
+  },
+  {
+   "match": "api.semanticscholar.org",
+   "body": {
+    "data": [
+     {
+      "title": "Alpha study",
+      "year": 2021,
+      "externalIds": {
+       "DOI": "10.5555/alpha"
+      }
+     },
+     {
+      "title": "Delta study",
+      "year": 2023,
+      "externalIds": {
+       "DOI": "10.5555/delta"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "match": "doi.org/10.5555/alpha",
+   "body": "@article{alpha2021,\n  author = {Doe, Jane},\n  title = {Alpha study},\n  year = {2021},\n  doi = {10.5555/alpha}\n}"
+  },
+  {
+   "match": "doi.org/10.5555/beta",
+   "body": "@article{beta2021,\n  author = {Doe, Jane},\n  title = {Beta study},\n  year = {2021},\n  doi = {10.5555/beta}\n}"
+  },
+  {
+   "match": "doi.org/10.5555/gamma",
+   "body": "@article{gamma2021,\n  author = {Doe, Jane},\n  title = {Gamma study},\n  year = {2021},\n  doi = {10.5555/gamma}\n}"
+  },
+  {
+   "match": "doi.org/10.5555/delta",
+   "body": "@article{delta2021,\n  author = {Doe, Jane},\n  title = {Delta study},\n  year = {2021},\n  doi = {10.5555/delta}\n}"
+  }
+ ]
+}

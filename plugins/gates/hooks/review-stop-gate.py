@@ -215,6 +215,19 @@ if sec_edited and not sec_ran:
         f"never ran. Dispatch that read-only agent on the diff before finishing."
     )
 
+# Receipts only NARROW the gate: with `review_receipts_dir` set, a security edit also needs a fresh PASS receipt
+# from the configured role for the current content of every edited file. The role-ran proof above stays mandatory.
+_rdir = CFG.get("review_receipts_dir") or ""
+if _rdir and sec_edited and sec_ran:
+    import receipts
+
+    _role = gates_config.role(CFG.get("security_review_role") or "security-reviewer")
+    _cwd = d.get("cwd") or os.getcwd()
+    _files = [f if os.path.isabs(f) else os.path.join(_cwd, f) for f in sec_files]
+    _why = receipts.assess(_files, _rdir, _role)
+    if _why:
+        reasons.append("Security review receipts do not cover the current files: " + "; ".join(clean(x) for x in _why) + ". Re-run the review and issue a fresh PASS receipt.")
+
 if reasons:
     # Ledger gets counts only — no persistent index of credential-keyword file
     # paths in the cross-project ledger.

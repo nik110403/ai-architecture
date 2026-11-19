@@ -6,7 +6,7 @@
 # pretool -> deny, stop -> block (silent if stop_hook_active, so the turn can end), session -> systemMessage.
 HERE="${BASH_SOURCE[0]%/*}"; [ "$HERE" = "${BASH_SOURCE[0]}" ] && HERE=.   # builtins only: must work even with an empty PATH
 kind="$1"; script="$2"
-# Wall budget (hook limit 10 s): stdin copy <= 2+1 s, guard <= 3+1 s, stop_hook_active check <= 1.2 s => < 9 s worst case.
+# Wall budget (hook limit 10 s): stdin copy <= 2+1 s, guard <= 3+1 s, output validation <= 1.2 s, stop_hook_active check <= 1.2 s => < 9.5 s worst case.
 # stdin is NOT read with bash `read` (1 byte/syscall, ~2 s/MB before any timeout starts): `cat` copies it to a
 # temp file under its own timeout, and the guard then reads that file.
 tmp=""; fd3=""
@@ -38,8 +38,14 @@ exec 3>"$tmp" 4<"$tmp" 5<"$tmp" || fail "could not open stdin copy"
 rm -f -- "$tmp"; tmp=""; fd3=1
 timeout -k 1 2 cat >&3 || fail "could not read stdin in time"
 # separate read fds (4: guard, 5: stop probe) start at offset 0 on any OS, no reopen needed
-out="$(timeout -k 1 3 python3 -I "$HERE/$script" <&4)"; rc=$?
+# -B + a pycache_prefix that does not exist: the guards never load or write a cached .pyc (a planted
+# hooks/lib/__pycache__/*.pyc would otherwise run inside the guard, below the integrity manifest).
+out="$(timeout -k 1 3 python3 -I -B -X pycache_prefix=/nonexistent/aiarch-gates-pyc "$HERE/$script" <&4)"; rc=$?
 [ "$rc" -eq 0 ] || fail "failed or timed out (rc=$rc)"
-case "$out" in ""|"{"*) ;; *) fail "produced no valid decision" ;; esac
-[ -n "$out" ] && printf '%s\n' "$out"
+# Output must be empty or ONE complete JSON object: a prefix test ("{oops") would hand Claude Code invalid JSON,
+# which it treats as non-blocking. One bounded `python3 -I -c json.loads` (<= 1.2 s) validates the whole text.
+if [ -n "$out" ]; then
+  printf '%s' "$out" | timeout -k 0.2 1 python3 -I -c 'import json,sys; sys.exit(0 if isinstance(json.loads(sys.stdin.read()), dict) else 1)' >/dev/null 2>&1 || fail "produced no valid decision"
+  printf '%s\n' "$out"
+fi
 exit 0

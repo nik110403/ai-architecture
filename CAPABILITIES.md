@@ -22,7 +22,13 @@ The status words mean:
 
 A checklist is not automated routing or enforcement, and a description is not evidence that something runs.
 
-This release exposes 21 skills, 8 roles, and 6 commands in
+The per-capability registry (`capabilities/registry.json`, read with `python3 -B scripts/capabilities.py status`) uses two
+states for module-backed rows. `partial`: the behaviour runs from this collection on your machine, possibly with fakes or
+fixtures or with common system tools you install; each such tool is listed as an optional requirement and the setup action
+says what is fake or missing. `planned`: declarations only, or a companion or backend outside this collection is needed
+(the default install result is MISSING). No row is `available`.
+
+This release exposes 21 skills, 13 roles, and 6 commands in
 [CATALOG.md](CATALOG.md). The optional journal is a byte-identical copy of its source; that is a packaging
 fact, not automation.
 

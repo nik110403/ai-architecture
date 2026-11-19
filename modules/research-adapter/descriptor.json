@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "module": "research-adapter",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {
+      "identifier": "provenote",
+      "version": "0.2.0",
+      "status": "declared-untested"
+    }
+  ],
+  "schemas": []
+}

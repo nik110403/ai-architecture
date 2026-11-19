@@ -132,7 +132,8 @@ def strip_heredocs(s):
 #         otherwise defeat the literal command-name matches below. Single-quoted regions are
 #         left alone (bash never treats \ as an escape inside \x27...\x27). ---
 def deescape(s):
-    out, in_single, i, n = [], False, 0, len(s)
+    out, in_single, in_double, comment, i, n = [], False, False, False, 0, len(s)
+    esc_end = -1  # index just past the last backslash escape: a char right after an escaped space is not a word start
     while i < n:
         c = s[i]
         if in_single:
@@ -141,14 +142,33 @@ def deescape(s):
                 in_single = False
             i += 1
             continue
-        if c == "\x27":
+        if c == "\x27" and not in_double and not comment:  # a quote inside a comment is just text
             in_single = True
             out.append(c)
             i += 1
             continue
+        if c == "\n":
+            comment = False
+        elif c == '"' and not comment:
+            in_double = not in_double
+        elif c == "#" and not in_double and (i == 0 or (s[i - 1] in " \t\n;&|()" and esc_end != i)):
+            comment = True
+        if c == "\\" and i + 1 < n and s[i + 1] == "\n":
+            if comment:  # a comment ends at the newline even after a backslash: the next line is a real command
+                out.append("\n")
+            # else: line continuation, bash joins the two lines with nothing in between (r\<nl>m == rm)
+            comment = False
+            i += 2
+            continue
         if c == "\\" and i + 1 < n and s[i + 1].isalnum():
             out.append(s[i + 1])
             i += 2
+            continue
+        if c == "\\" and i + 1 < n:
+            out.append(c)
+            out.append(s[i + 1])  # escaped quote/space/etc.: neither toggles quote state nor starts a comment
+            i += 2
+            esc_end = i
             continue
         out.append(c)
         i += 1
@@ -328,7 +348,29 @@ DB_FLAG = (
 )
 DB_DESTRUCT = r"[^|&\n]*\b(?:delete\s+from|drop\s+(?:database|schema|table)|truncate)\b"
 
+# An expansion ($x, ${x}, $1, $(...), backtick), optionally double-quoted, where the command NAME goes: after a
+# separator, a shell keyword (do/then/else/elif/while/until/if/!/time), a command prefix (sudo, env, xargs ...),
+# a NAME=val assignment, or a case-arm `)`. Quoting or a prefix must not hide it.
+EXPANSION_CMDPOS = (
+    r"(?:^|[;&|\n({`]|\bin\s+[^)\n;]*\))\s*"
+    r"(?:(?:sudo|doas|command|builtin|exec|nice|nohup|time|xargs|env|timeout\s+\S+|do|then|else|elif|while|until|if|!)\s+(?:-\S+\s+)*"
+    r"|[a-z_]\w*=\S*\s+)*"
+    r"\"?(?:\$\{?[a-z_0-9@*]|\$\(|`)"
+)
+
 ASK_RULES = [
+    (
+        r"\|\s*(?:sudo\s+)?(?:ba|da|z)?sh\b",
+        "piping into a shell (| sh / bash) — the script text cannot be inspected",
+    ),
+    (
+        EXPANSION_CMDPOS,
+        "variable or command substitution in command position — the command name cannot be inspected",
+    ),
+    (
+        r"(?:^|[;&|\n({])\s*alias\s+[\w.-]+=",
+        "alias definition — can shadow a command the guard matches by name",
+    ),
     (
         lambda c: force_flagged(c, r"git\s+push"),
         "git push --force / -f — rewrites remote history",

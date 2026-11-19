@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "module": "media",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {"identifier": "core-contracts", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "browser-operations", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "design-pipeline", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "documents", "version": "1.0.0", "status": "declared-untested"}
+  ],
+  "schemas": ["status"]
+}

@@ -105,6 +105,41 @@ echo "$T" | grep -q 'nightly-report' && echo "$T" | grep -q 'build-server-sync' 
 rc=0; run --strict --registry "$SELF_DIR/../LOOPS.template.md" >/dev/null 2>&1 || rc=$?
 [ "$rc" -eq 1 ]; check $? "T23 template's dead example row trips --strict"
 
+# ---- --format json (A3): same per-row verdicts and exit code as the text output ---------------
+cmp_json() {  # label, then run-wrapper and loop-sync args; compares text vs json verdict sequences + exit code
+  local label="$1" wrap="$2"; shift 2
+  local txt jsn rc_t rc_j
+  txt="$($wrap "$@" 2>&1)"; rc_t=$?
+  jsn="$($wrap "$@" --format json 2>&1)"; rc_j=$?
+  python3 -B - "$rc_t" "$rc_j" "$txt" "$jsn" <<'PY'
+import json, sys
+rc_t, rc_j, txt, jsn = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3], sys.argv[4]
+icon = {"\u2705": "ok", "\u26a0": "warn", "\u26d4": "dead"}
+rows, cur = [], None
+for line in txt.splitlines():
+    if line.startswith("    "):
+        cur[1].append(icon[line.strip()[0]])
+    elif line.startswith("  ") and not line.startswith("  \u26a0"):
+        cur = [line.strip(), []]
+        rows.append(cur)
+    elif line.startswith("  \u26a0"):
+        pass  # top-level note
+data = json.loads(jsn)
+got = [[r["loop"], [v["verdict"] for v in r["verdicts"]]] for r in data["rows"]]
+sys.exit(0 if rc_t == rc_j and got == rows and rows else 1)
+PY
+  check $? "$label"
+}
+cmp_json "T24 json == text: ok registry, fake systemctl" run --strict --registry "$FIX/loops-ok.md"
+cmp_json "T25 json == text: dead registry" run --strict --registry "$FIX/loops-dead.md"
+cmp_json "T26 json == text: wiring registry" run --registry "$FIX/loops-wiring.md" --host testhost --settings "$FIX/settings-ok.json"
+cmp_json "T27 json == text: missing unit --strict" run --strict --registry "$FIX/loops-missing.md"
+cmp_json "T28 json == text: no systemd" runno --strict --registry "$FIX/loops-wiring.md" --host testhost
+J="$(run --registry "$FIX/loops-wiring.md" --host testhost --format json 2>&1)"
+python3 -B -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["systemd"] is True and d["violations"]==0' "$J"; check $? "T29 json envelope parses"
+rc=0; run --registry "$FIX/loops-ok.md" --format yaml >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 2 ]; check $? "T30 bad --format -> exit 2"
+
 echo "----"
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

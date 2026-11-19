@@ -1,0 +1,5 @@
+{
+  "event": {"event_id": "example-1", "kind": "request", "occurred_at": "2026-10-28T00:00:00Z", "subject": "01"},
+  "result": {"event_id": "example-1", "outcome": "unsupported", "evidence": [], "finished_at": "2026-10-28T00:00:01Z"},
+  "status": {"subject": "01", "state": "planned", "observed_at": "2026-10-28T00:00:01Z", "reason": "No adapter has been accepted."}
+}

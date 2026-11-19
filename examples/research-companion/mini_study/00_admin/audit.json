@@ -1,0 +1,15 @@
+{
+  "status": "RUN",
+  "reviewed": {
+    "10_paper/draft.md": "fda5e53635ed965531761cee430c67e23825514fd935e7adb0e44115d48be462",
+    "exhibits.json": "6c303b05bb0ddfdfef98c50fe29c58f4720de35e12af5a660ae773a5c4f55547"
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "disposition": "fixed",
+      "evidence": "00_admin/audit-evidence.md",
+      "evidence_sha256": "8074d2cf3616a32209908197c47d54e6a84c9ca2c03ee3b24759e0ef833cb872"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "required": {
+    "schema": "string", "reason": "string", "plan_id": "string", "state": "string", "stop_reason": "null|string",
+    "provider": "string", "rounds": "int", "spent": "object", "budget": "object", "fix_rounds": "object",
+    "items": "object", "queued": "list", "controller": "object", "branch": "string", "detached_pid": "null|int",
+    "resource": "null|object"
+  }
+}

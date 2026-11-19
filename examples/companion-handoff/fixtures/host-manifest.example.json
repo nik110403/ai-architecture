@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "interface": "handoff-brief/1",
+  "name": "my-discovery-companion",
+  "root": "/absolute/path/to/your/companion/checkout",
+  "rev": "HEAD",
+  "commands": {"handoff": "bin/handoff", "set": "bin/set", "list": "bin/list"},
+  "support": ["bin/shared_lib.py"],
+  "dispositions": {"adopted": "integrated", "harvested": "harvested", "deferred": "deferred", "rejected": "skip"},
+  "eligible_status": "next"
+}

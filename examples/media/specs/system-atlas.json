@@ -1,0 +1,13 @@
+{"nodes": [
+  {"id": "gateway", "kind": "service", "label": "Gateway"},
+  {"id": "queue", "kind": "queue", "label": "Job queue"},
+  {"id": "worker", "kind": "service", "label": "Worker"},
+  {"id": "store", "kind": "database", "label": "Result store"}
+ ],
+ "edges": [
+  {"from": "gateway", "to": "queue", "label": "enqueue"},
+  {"from": "queue", "to": "worker", "label": "deliver"},
+  {"from": "worker", "to": "store", "label": "write"},
+  {"from": "store", "to": "gateway", "label": "read"}
+ ],
+ "loops": [["gateway", "queue", "worker", "store"]]}

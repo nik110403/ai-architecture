@@ -1,0 +1,15 @@
+{
+  "connectors": {
+    "stub": {
+      "argv": [
+        "python3",
+        "./stub_connector.py"
+      ],
+      "operations": [
+        "read",
+        "write",
+        "create"
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "module": "browser",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {
+      "identifier": "core-contracts",
+      "version": "1.0.0",
+      "status": "declared-untested"
+    }
+  ],
+  "schemas": [
+    "result"
+  ]
+}

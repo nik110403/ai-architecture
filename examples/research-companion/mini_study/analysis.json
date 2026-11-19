@@ -1,0 +1,12 @@
+{
+  "entry": [
+    "python3",
+    "03_code/run_all.py"
+  ],
+  "cwd": ".",
+  "timeout_s": 30,
+  "outputs": [
+    "06_tables/table1.csv",
+    "05_figures/fig1.txt"
+  ]
+}

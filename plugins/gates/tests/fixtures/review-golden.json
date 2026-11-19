@@ -1,0 +1,37 @@
+{
+ "(missing transcript)": {
+  "stop": ""
+ },
+ "review-clean.jsonl": {
+  "stop": "",
+  "stop_hook_active": ""
+ },
+ "review-sec-edit-reviewer.jsonl": {
+  "stop": "",
+  "stop_hook_active": ""
+ },
+ "review-sec-edit.jsonl": {
+  "stop": "{\"decision\": \"block\", \"reason\": \"Security-sensitive code was edited (/work/app/login.py) but the security-reviewer agent never ran. Dispatch that read-only agent on the diff before finishing.\"}\n",
+  "stop_hook_active": ""
+ },
+ "review-ui-delegated.jsonl": {
+  "stop": "{\"decision\": \"block\", \"reason\": \"UI file(s) were edited ((delegated to a UI builder)) but the design-critic agent never ran. Dispatch that read-only agent on the affected page(s) before finishing.\"}\n",
+  "stop_hook_active": ""
+ },
+ "review-ui-edit-critic-mention.jsonl": {
+  "stop": "{\"decision\": \"block\", \"reason\": \"UI file(s) were edited (/work/site/style.css) but the design-critic agent never ran. Dispatch that read-only agent on the affected page(s) before finishing.\"}\n",
+  "stop_hook_active": ""
+ },
+ "review-ui-edit-critic.jsonl": {
+  "stop": "",
+  "stop_hook_active": ""
+ },
+ "review-ui-edit-denied.jsonl": {
+  "stop": "",
+  "stop_hook_active": ""
+ },
+ "review-ui-edit.jsonl": {
+  "stop": "{\"decision\": \"block\", \"reason\": \"UI file(s) were edited (/work/site/style.css) but the design-critic agent never ran. Dispatch that read-only agent on the affected page(s) before finishing.\"}\n",
+  "stop_hook_active": ""
+ }
+}

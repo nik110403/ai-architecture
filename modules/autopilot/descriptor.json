@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "module": "autopilot",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [
+    {"identifier": "core-contracts", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "continuity", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "orchestration", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "isolation", "version": "1.0.0", "status": "declared-untested"},
+    {"identifier": "observability", "version": "1.0.0", "status": "declared-untested"}
+  ],
+  "schemas": ["status"]
+}

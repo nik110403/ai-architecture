@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""fake-handoff [--apply] [--targets-root PATH]: stage one brief per eligible candidate; --apply places it."""
+import argparse
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import fake_lib as L
+
+
+def field(body, label):
+    found = re.search(rf"\*\*{re.escape(label)}:\*\*\s*(.*)", body)
+    return found.group(1).strip() if found else ""
+
+
+def render(repo, body, src):
+    return "\n".join([f"# Handoff: {repo}", "", f"**What:** {field(body, 'What') or '-'}",
+                      f"**Next action:** {field(body, 'Next action') or '-'}",
+                      f"**Blocks on:** {field(body, 'Blocks on') or '-'}", f"**Source:** `{src}`",
+                      "**Routing reason:** frontmatter `handoff-to`", ""])
+
+
+def write_or_conflict(dest, content):
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        if dest.read_text() == content:
+            return "unchanged"
+        dest.with_name(dest.stem + ".new" + dest.suffix).write_text(content)
+        return "conflict"
+    dest.write_text(content)
+    return "written"
+
+
+def append_section(path, repo, stem, brief):
+    header = f"## Handoff: {repo}"
+    section = f"{header}\n\n{brief}\n"
+    if not path.exists():
+        path.write_text("# Questions\n\n" + section)
+        return "written (new QUESTIONS.md)"
+    text = path.read_text()
+    found = re.search(rf"^{re.escape(header)}\n.*?(?=^## |\Z)", text, re.M | re.S)
+    if found:
+        if found.group(0).strip() == section.strip():
+            return "unchanged"
+        path.with_name(stem + ".new.md").write_text(section)
+        return "conflict"
+    path.write_text(text.rstrip("\n") + "\n\n" + section)
+    return "appended"
+
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--apply", action="store_true")
+ap.add_argument("--targets-root")
+args = ap.parse_args()
+root = Path(args.targets_root) if args.targets_root else L.ROOT.parent
+staged, placed = [], []
+for path, meta, body in L.all_repos():
+    if meta.get("status") != "next" or not meta.get("handoff-to"):
+        continue
+    repo, target = meta["repo"], meta["handoff-to"]
+    brief = render(repo, body, f"data/repos/{path.name}")
+    stage = L.ROOT / "handoffs" / target / path.name
+    staged.append((f"data/repos/{path.name}", str(stage.relative_to(L.ROOT)), write_or_conflict(stage, brief)))
+    if not args.apply:
+        continue
+    if target == "_inbox":
+        placed.append((repo, "[staged only - no target repo]", "not placed"))
+        continue
+    pack = meta.get("handoff-pack")
+    if pack and (root / target / "plans" / pack).is_dir():
+        q = root / target / "plans" / pack / "QUESTIONS.md"
+        placed.append((repo, str(q.relative_to(root)), append_section(q, repo, path.stem, brief)))
+    else:
+        dest = root / target / "plans" / "_inbox" / path.name
+        placed.append((repo, str(dest.relative_to(root)), write_or_conflict(dest, brief)))
+print(f"{len(staged)} brief(s) staged, 0 skipped (no routing rule):")
+for src, dst, result in staged:
+    print(f"  {src} → {dst}  [{result}]")
+if args.apply:
+    n = sum(1 for _, _, r in placed if r == "not placed")
+    print(f"\n{len(placed) - n} placement(s) applied under {root} ({n} staged only - no target repo):")
+    for repo, dest, result in placed:
+        print(f"  {repo} → {dest}  [{result}]")

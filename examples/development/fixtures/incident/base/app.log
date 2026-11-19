@@ -1,0 +1,6 @@
+2026-01-01T10:00:01Z INFO request path=/home latency_ms=870
+2026-01-01T10:00:02Z INFO request path=/search latency_ms=905
+2026-01-01T10:00:03Z WARN latency_ms=910 cache=off
+2026-01-01T10:00:04Z INFO healthcheck ok
+2026-01-01T10:00:05Z WARN latency_ms=930 cache=off
+2026-01-01T10:00:06Z WARN latency_ms=895 cache=off

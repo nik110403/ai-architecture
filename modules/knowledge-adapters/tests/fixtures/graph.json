@@ -1,0 +1,1 @@
+{"directed": false, "multigraph": false, "graph": {}, "nodes": [{"id": "alpha", "label": "alpha"}, {"id": "beta", "label": "beta"}, {"id": "gamma", "label": "gamma"}], "links": [{"source": "alpha", "target": "beta", "relation": "calls"}, {"source": "beta", "target": "gamma", "relation": "reads"}]}

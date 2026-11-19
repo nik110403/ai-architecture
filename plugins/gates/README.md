@@ -132,6 +132,32 @@ Example `~/.config/ai-architecture/gates.json`:
   `~/.cache/ai-architecture/gates/`.
 - **Bash writes are not covered** by the code-edit gates (they watch the Edit/Write tools only).
 
+## Limits: this guard is a tripwire
+
+A pattern guard over shell text cannot be complete. `bash-destructive-guard` catches common accidental and obvious
+destructive commands. It is NOT a sandbox and must not be the only control. Use it together with the harness
+permission prompt and the OS isolation module ([`modules/isolation`](../../modules/isolation/README.md), bubblewrap:
+read-only root, one writable directory, no network); those two are the real boundaries.
+
+Bypass classes that are known and still open in this version (an allowed command here may still run something
+destructive):
+
+- A command name taken from a variable or substitution when it follows less common prefixes: wrappers not on the
+  guard's list (`coproc`, `setsid`, `stdbuf` and similar), listed wrappers given an option that takes an argument,
+  `eval` and `sh -c` style command-string carriers, find `-exec`, `source`, a later `case` arm, and similar.
+  Indirect expansion (`${!name}`) is not recognised either.
+- Redirect or assignment prefixes in front of an expanded command name, including an ordinary redirect as well as
+  named-descriptor redirects and subscripted assignments.
+- Quote and comment state tracking: some `$'...'` quoting forms and a `#` that bash treats as part of a word (after
+  `)` or inside a parameter expansion) can make the guard misjudge where a line ends, so a line-continuation join is
+  not seen.
+- Backtick expansions inside unquoted here-document bodies.
+- Secret reads through shell variables, and a function redefinition that shadows a command the guard does not match
+  by name.
+
+The OpenCode bridge (`opencode/`) runs this same guard, so the same limits apply. Its optional tree-sitter check may
+only auto-approve a small read-only allowlist; it does not make the guard a boundary.
+
 ## Known limitations
 
 Known limits of the destructive guard (short list):
@@ -145,6 +171,57 @@ Known limits of the destructive guard (short list):
   payload that parses as JSON but has the wrong shape (for example `tool_input` as a string, `cwd` as a
   number, or `command` as a list) can make a hook raise; the crash guard then answers deny (pre-tool) or block (Stop) instead of exiting 1.
   Claude Code does not send these shapes today.
+
+## Native gate enforcement (evidence: fixture-tested)
+
+What the hooks do on their own, proven by `tests/run.sh` against recorded payloads and scripted broken hooks:
+
+- **Fail closed.** A hook that is unreadable (mode 000), raises, sleeps past the wall-clock cap, prints text that is
+  not one complete JSON object (`hello`, `{oops`, a JSON array), or runs with an empty `PATH` is answered by
+  `hooks/run-hook.sh` with deny (pre-tool) or block (Stop). Output is validated as a whole by one bounded
+  `python3 -I -c json.loads`, not by its first character. The OpenCode bridge applies the same rule to every bridged
+  hook; only a hook listed in the in-process `ADVISORY_HOOKS` array is fail-open (and logged), and no environment
+  variable or config key can add to that list. A missing or unusable `hooks/hooks.json` denies every call.
+- **The Python guard is a tripwire, not a parser.** `hooks/bash-destructive-guard.py` matches the literal command text
+  after de-escaping (including backslash-newline joins, `$'\x72m'`, `${IFS}`). It asks on a pipe into a shell, on a
+  variable, `$(...)` or backtick in command position, and on `alias` definitions. A shared corpus
+  (`tests/fixtures/bypass-corpus.json`) runs through it and through the OpenCode tree-sitter classifier
+  (`opencode/bridge/bash-structural.ts`). Only that classifier may auto-approve a command; it approves a tiny read-only
+  allowlist and nothing that contains a parse error.
+- **Known tripwire gaps** (the corpus lists them as `not-approve`: only the structural parser is checked): a
+  function redefinition that shadows a command other than the ones the guard matches by name, command names built from
+  data the guard cannot see (`eval "$(cat file)"` is only asked if the pipe or substitution forms above appear), and a
+  Bash `sed -i` on a security-sensitive file, which the Stop gate does not count as an edit.
+- **Empty `PATH` is a native-unexercised fail-open.** `hooks/hooks.json` runs `bash ...`; if the harness cannot resolve
+  `bash`, the command exits 127, which Claude Code treats as non-blocking. The tests cover the empty `PATH` only for
+  `hooks/run-hook.sh` started by absolute path; the 127 case is outside this plugin and was not exercised in a live session.
+
+### Review receipts (opt-in)
+
+`review_receipts_dir` (user config, absolute path; empty by default = behaviour unchanged) makes the review Stop gate
+stricter, never looser. A security-sensitive edit then passes only if the transcript proves the
+`security_review_role` agent ran **and** a fresh PASS receipt whose `reviewer` equals that role covers the current
+sha256 of every edited file (receipts store absolute realpaths). A FAIL receipt naming the current hash, a receipt from
+another role, a stale receipt, an unusable directory, more than 200 receipts or a file over 16 MiB all block.
+Issue receipts with [the review module](../../modules/review/README.md); a receipt alone never satisfies the gate because anyone can issue one.
+
+### Guard integrity, backup and rollback
+
+`plugins/gates/tools/integrity.py` records `(path, mode, sha256)` of `.claude-plugin/plugin.json`, `defaults.json` and every file
+under `hooks/`, and `check` names each missing, changed, unreadable, non-regular or unexpected file. Make the
+manifest from a trusted tree first; `install --from P --to T --manifest M` backs T up to `T.bak-<utc>`, copies,
+re-checks, and restores the backup if the check fails; `rollback --to T --backup B` restores byte-identically. A
+symlinked target or backup is refused (exit 2).
+
+## OS isolation is a separate layer (evidence: fixture-tested on one Linux host; native-unexercised in a live agent session)
+
+A git worktree, a role declaration or an agent `tools:` allowlist is **not a sandbox**: none of them stops a process
+the agent starts from touching the rest of your disk or network. The optional adapter
+[`modules/isolation`](../../modules/isolation/README.md) runs one command under bubblewrap (`/` read-only, one
+writable directory, private `/tmp`, no network, a fresh process namespace, cleared environment). It reports
+`unavailable` and does not run the command when bubblewrap cannot create a sandbox. The gates never call it.
+
+Tribunal accounting (a count of reviewer runs) stays staged until it has been exercised; nothing here implements it.
 
 ## Described, not shipped: read-only reviewer seats
 
@@ -178,8 +255,9 @@ HOME=$(mktemp -d) bash plugins/gates/tests/run.sh
 ```
 
 Runs offline against recorded hook payloads and transcripts with an empty `HOME`: the destructive
-guard fixture table, each model/Stop/SessionStart gate, and the
-configuration-scope checks (including a project-scope file that tries to disable the guard).
+guard fixture table, each model/Stop/SessionStart gate, the
+configuration-scope checks (including a project-scope file that tries to disable the guard), the shared bypass corpus,
+scripted broken hooks, review receipts, byte-identity goldens for the review gate and the integrity tool.
 
 ## Provenance and licence
 

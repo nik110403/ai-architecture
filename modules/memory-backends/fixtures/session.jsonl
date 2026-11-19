@@ -1,0 +1,5 @@
+{"hook_event_name":"PostToolUse","tool_name":"Edit","cwd":"/work/demo/src","tool_input":{"file_path":"/work/demo/src/feeding.py","description":"Added a rounding fix for the sourdough starter feeding schedule. Second sentence is dropped."},"session_id":"fixture-session-1","transcript_path":"/work/transcripts/fixture-session-1.jsonl"}
+{"hook_event_name":"PostToolUse","tool_name":"Bash","cwd":"/work/demo","tool_input":{"command":"pytest tests/test_feeding.py","description":"Ran the feeding schedule tests for the starter module."},"session_id":"fixture-session-1"}
+{"hook_event_name":"PostToolUse","tool_name":"Read","cwd":"/work/demo","tool_input":{"file_path":"/opt/shared/jar-config.yaml"},"session_id":"fixture-session-1"}
+{"hook_event_name":"PostToolUse","tool_name":"Write","cwd":"/work/other","tool_input":{"file_path":"/work/other/notes.txt","description":"Wrote notes for an unrelated project."},"session_id":"fixture-session-1"}
+{"hook_event_name":"Stop","cwd":"/work/demo","last_assistant_message":"Finished the pagination refactor and left follow-up notes. More text follows.","session_id":"fixture-session-1"}

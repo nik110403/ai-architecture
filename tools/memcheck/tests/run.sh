@@ -250,6 +250,44 @@ printf 'open(%s,"w").write("pwned")\n' "\"$TMPD/pwned-marker\"" >"$CWDD/re.py"
 [ ! -e "$TMPD/pwned-marker" ] && grep -q '' "$R11/demo/memory/MEMORY.md"
 check $? "T37 cwd ./re.py is not imported by the shorten helper"
 
+# a symlinked note (even one that resolves) is neither scanned nor indexed: no read outside the root
+R12="$(mk_sym symnote)"
+OUTN="$TMPD/outside-note.md"
+printf -- '---\nname: outside-note\ndescription: OUTSIDE-CANARY-Q7 payload\n---\nOUTSIDE-CANARY-Q7 body 2020-01-15\n' >"$OUTN"
+ln -s "$OUTN" "$R12/demo/memory/linked-note.md"
+H="$(md5sum "$R12/demo/memory/MEMORY.md" | cut -d' ' -f1)"
+O1="$("$BIN" --root "$R12" 2>&1)"
+O2="$("$BIN" --root "$R12" --fix-index --apply 2>&1)"
+O3="$("$BIN" --root "$R12" --fix-index --shorten --apply 2>&1)"
+! printf '%s\n%s\n%s\n' "$O1" "$O2" "$O3" | grep -q 'OUTSIDE-CANARY-Q7\|linked-note' &&
+	[ "$(md5sum "$R12/demo/memory/MEMORY.md" | cut -d' ' -f1)" != "$H" ] # the real orphan is still indexed
+check $? "T38 symlinked note is skipped by scan and fix-index (no outside read, not indexed)"
+! grep -q 'OUTSIDE-CANARY-Q7\|linked-note' "$R12/demo/memory/MEMORY.md"
+check $? "T38b outside note text never reaches MEMORY.md"
+
+# T38c: a regular file whose name embeds a newline ("x\nlinked.md") next to an outside symlink
+# "linked.md" must not make the line-based listing resolve the symlink (neither read nor indexed).
+R13="$(mk_sym nlname)"
+OUTL="$TMPD/outside-nl.md"
+printf -- '---\nname: nl-canary\ndescription: NL-CANARY-Z9 payload\n---\nNL-CANARY-Z9 body\n' >"$OUTL"
+ln -s "$OUTL" "$R13/demo/memory/linked.md"
+NLNAME="$(printf 'x\nlinked.md')"
+printf 'plain\n' >"$R13/demo/memory/$NLNAME"
+P1="$("$BIN" --root "$R13" 2>&1)"
+P2="$("$BIN" --root "$R13" --fix-index --apply 2>&1)"
+! printf '%s\n%s\n' "$P1" "$P2" | grep -q 'NL-CANARY-Z9' && ! grep -q 'NL-CANARY-Z9\|nl-canary' "$R13/demo/memory/MEMORY.md"
+check $? "T38c newline-named file cannot alias an outside symlink (not read, not indexed)"
+
+# T38d: a symlinked MEMORY.md is never read by the scan (any slug); it is reported instead
+R14="$(mk_sym symmem)"
+OUTM="$TMPD/outside-index.md"
+printf -- '- [Leak](leak.md) - MEMIDX-CANARY-W3 payload\n' >"$OUTM"
+mv "$R14/demo/memory/MEMORY.md" "$TMPD/moved-index.md"
+ln -s "$OUTM" "$R14/demo/memory/MEMORY.md"
+Q1="$("$BIN" --root "$R14" 2>&1)"
+! printf '%s\n' "$Q1" | grep -q 'MEMIDX-CANARY-W3\|leak.md' && printf '%s\n' "$Q1" | grep -qi 'symlink'
+check $? "T38d symlinked MEMORY.md skipped by scan and reported, never read"
+
 echo "----"
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "module": "core-contracts",
+  "claimed_support": "planned",
+  "evidence": [],
+  "dependencies": [],
+  "schemas": ["event", "result", "status"]
+}

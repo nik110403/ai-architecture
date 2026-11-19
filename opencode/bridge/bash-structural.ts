@@ -9,6 +9,7 @@
 //   no patterns (or a degenerate command name: empty/MISSING or an arithmetic expansion, whose ask pattern
 //   would not show what runs) and the command is not empty / a plain cd|pushd|popd.
 import { createRequire } from "node:module"
+import path from "node:path"
 
 export type Verdict = { approve: boolean; reason: string; zeroPattern: boolean; parseError: boolean }
 
@@ -58,10 +59,12 @@ export const APPROVE_TABLE = { DASH, EXACT, ANY }
 // ---- parser (lazy; load failure surfaces as a throw so the caller can fail open for B) ----
 let parserP: Promise<any> | undefined
 export const PARSER_LOAD_MS = 10_000 // parser load gets its own, longer budget than the 2 s classify budget
-export function loadParser(): Promise<any> {
+// `dir` (tests only; production passes nothing): a directory whose node_modules holds the two pinned packages,
+// for a verify loop that keeps them outside the source tree.
+export function loadParser(dir?: string): Promise<any> {
   parserP ??= (async () => {
-    const req = createRequire(import.meta.url)
-    const { Parser, Language } = await import("web-tree-sitter")
+    const req = createRequire(dir ? path.join(dir, "node_modules", "_resolve.js") : import.meta.url)
+    const { Parser, Language } = await import(dir ? req.resolve("web-tree-sitter") : "web-tree-sitter")
     await Parser.init({ locateFile: () => req.resolve("web-tree-sitter/tree-sitter.wasm") })
     const lang = await Language.load(req.resolve("tree-sitter-bash/tree-sitter-bash.wasm"))
     const p = new Parser()
@@ -158,6 +161,8 @@ export function classifySync(parser: any, command: string): Verdict {
     // A: approval
     if (oversize) return v(false, "command too long", zeroPattern)
     if (hasError) return v(false, "parse error", zeroPattern, true)
+    // backslash-newline is whitespace to tree-sitter but a word joiner in bash (tr\<NL>uncate runs truncate): any backslash fails closed
+    if (command.includes("\\")) return v(false, "backslash", zeroPattern)
     if (!structOk) return v(false, "non-whitelisted construct", zeroPattern)
     if (!cmds.length) return v(false, "no command", zeroPattern)
     const bad = cmds.find(c => !isReadOnly(tokensOf(c)))

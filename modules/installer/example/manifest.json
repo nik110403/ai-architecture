@@ -1,0 +1,19 @@
+{
+  "schema": "installer-manifest/1",
+  "name": "example-tool",
+  "version": "1.0.0",
+  "files": [
+    {
+      "src": "files/tool.sh",
+      "dest": "bin/example-tool",
+      "mode": "0755",
+      "sha256": "294ec899fbd94b2463ebf9024ad3a0aaf8db94a580639578a26c642e82ffcad3"
+    },
+    {
+      "src": "files/tool.conf",
+      "dest": "etc/example-tool.conf",
+      "mode": "0644",
+      "sha256": "3b6a5e83064c150d750ab23cda5897779da4dd38c898c280b0a4145ba17484dd"
+    }
+  ]
+}

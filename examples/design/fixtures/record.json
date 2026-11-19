@@ -1,0 +1,18 @@
+{
+  "user_task": "A person keeps short notes and wants to open the menu and pin a note with the keyboard alone.",
+  "content_register": "Product UI. The note list and the menu come first; the register is plain and quiet.",
+  "states": ["menu closed", "menu open", "note pinned"],
+  "accessibility": "Every control has a name, text meets WCAG contrast, every target is reachable and visibly focused by keyboard.",
+  "visual_constraints": "Use only the project tokens below.",
+  "acceptance_evidence": "Rendered screenshots at two viewports, the AX tree, a keyboard trace and the check results.",
+  "tokens": {"origin": "example", "colors": ["#000000", "#ffffff", "#0b57d0"], "fonts": ["system-ui"]},
+  "interactions": [
+    {"id": "i1", "target": "#menu-btn", "key": "Enter", "expect": {"selector": "#dlg", "visible": true}},
+    {"id": "i2", "target": "#menu-btn", "before": ["Enter"], "key": "Escape", "expect": {"selector": "#dlg", "visible": false}},
+    {"id": "i3", "target": "#card", "key": "Enter", "expect": {"selector": "#card", "class": "pinned"}}
+  ],
+  "required_elements": ["h1", "#menu-btn", "#card"],
+  "viewports": ["1280x800", "375x812"],
+  "motion": true,
+  "motion_targets": [".spinner"]
+}

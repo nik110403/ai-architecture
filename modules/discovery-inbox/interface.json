@@ -1,0 +1,8 @@
+{
+  "interface": "handoff-brief/1",
+  "record_keys": ["repo", "status", "category", "priority", "tags", "need-tags", "handoff-to", "handoff-pack"],
+  "body_labels": ["What", "Take", "Separable component", "Next action", "Blocks on", "Source", "Routing reason"],
+  "dispositions": ["adopted", "harvested", "deferred", "rejected"],
+  "roles": ["handoff", "set", "list"],
+  "max_brief_bytes": 65536
+}

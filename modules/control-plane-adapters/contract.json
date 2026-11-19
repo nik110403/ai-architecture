@@ -1,0 +1,28 @@
+{
+  "schema": "control-plane-contract/1",
+  "cells": [
+    "budget",
+    "unknown-cost",
+    "gate-human",
+    "blocked-by",
+    "freeze-drift",
+    "touches",
+    "corrupt-state",
+    "double-kickoff",
+    "interruption",
+    "queued-drain",
+    "status-readonly",
+    "pause",
+    "stop",
+    "resume-once"
+  ],
+  "protocol": {
+    "kickoff": "ADAPTER kickoff --repo R --plan DIR --fake-bin D --model M --state-home H [--budget-tokens N] [--max-rounds N] [--max-workers K]; one JSON object on stdout, exit non-zero on any stop that is not clean",
+    "status": "ADAPTER status --state-home H; JSON with state, stop_reason, rounds_accepted; read-only",
+    "pause": "ADAPTER pause --state-home H; the current round finishes, then the adapter stops with stop_reason paused",
+    "stop": "ADAPTER stop --state-home H; drains, cancels in-flight workers, banks them cancelled; stop_reason stopped",
+    "resume": "ADAPTER resume --state-home H [--max-rounds N] [--max-workers K] [--budget-tokens N]; continues from persisted state",
+    "state": "The adapter keeps its state under --state-home (a state.json holding owner.pid) and integrates accepted rounds onto a runner branch of --repo (a git worktree on a branch other than main). The harness starts every adapter process it launches in a session of its own and treats only that process tree as provably the adapter's: it kills the controller there, and a published owner.pid that is not in that tree fails the cell. It corrupts a state file only when a process of the launched tree holds a file open in that file's directory (the controller's lock), otherwise the cell is not-run. It also performs the drift injection itself; refusals must carry reason state-corrupt, verify-drift or gate-changed."
+  },
+  "evidence_rule": "A cell passes only on evidence the harness collects itself: the fake harness call log, process liveness and the process tree it launched (session membership read from /proc), a before/after snapshot of the adapter's state files, and git on the repo's runner branches (what was integrated, and whether dispatch branches or worktrees were cleaned up). Interruption, resume-once, corrupt-state, pause and stop are decided on those effects only: state.json contents (owner.pid, stop_reason) are never pass evidence, and an adapter-published pid is only ever checked against the launched tree, never obeyed. An adapter's own report (status, rounds_accepted, stop_reason, exit text) never counts. The refusal cells (freeze-drift, corrupt-state) use the reason on stdout only as the discriminator between the specific refusal and a crash or a wrong refusal, never as pass evidence on its own: they also need the harness-verified injection, no new dispatch, nothing integrated and no Traceback. A cell the harness cannot decide from its own evidence is not-run. not-run is never pass."
+}

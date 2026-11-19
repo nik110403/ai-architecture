@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "nonfiction_rule_sets": [
+    "answer-first",
+    "brevity",
+    "citation-fidelity",
+    "claim-then-support",
+    "evidence-density",
+    "plain-courtesy"
+  ],
+  "registers": {
+    "correspondence": {
+      "purpose": "Messages to a known reader that need a reply or a decision.",
+      "rule_sets": ["answer-first", "plain-courtesy"],
+      "may_inherit_from": ["chat"]
+    },
+    "chat": {
+      "purpose": "Short informal exchanges where speed matters more than polish.",
+      "rule_sets": ["brevity", "answer-first"],
+      "may_inherit_from": []
+    },
+    "essay": {
+      "purpose": "A sustained argument for a general reader, built from claims and support.",
+      "rule_sets": ["claim-then-support", "evidence-density"],
+      "may_inherit_from": []
+    },
+    "op-ed": {
+      "purpose": "A short public argument that takes a side and states it early.",
+      "rule_sets": ["claim-then-support", "answer-first"],
+      "may_inherit_from": ["essay"]
+    },
+    "academic": {
+      "purpose": "Scholarly prose where every claim is tied to a checkable source.",
+      "rule_sets": ["claim-then-support", "evidence-density", "citation-fidelity"],
+      "may_inherit_from": ["essay"]
+    },
+    "personal": {
+      "purpose": "First-person writing about the author's own experience.",
+      "rule_sets": ["first-person-candor", "concrete-detail"],
+      "may_inherit_from": []
+    },
+    "fiction": {
+      "purpose": "Invented narrative told through scene, voice and detail.",
+      "rule_sets": ["scene-voice", "concrete-detail"],
+      "may_inherit_from": []
+    }
+  }
+}

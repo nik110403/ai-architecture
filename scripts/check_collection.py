@@ -29,11 +29,15 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from capabilities import check_registry
+
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = set(
     "planning execution delegation context continuity review evaluation workspace design research safety maintenance routing convergence lifecycle discovery operations specialist-journeys".split()
 )
-ROLES = set("builder researcher security-reviewer design-critic".split())
+ROLES = set(
+    "builder researcher security-reviewer design-critic surveyor pipeline-runner steward design-builder browser-worker".split()
+)
 # Ported units (a directory with a PROVENANCE.md) are checked through `ported()`; these are the
 # names expected to be present, so the totals below are real inventories, not a stale number.
 PORTED = {
@@ -71,7 +75,7 @@ ROOT_DIRS = {
 }
 HOME_MARK = "/" + "home" + "/"  # built at runtime so the privacy scan stays clean
 STATES = {"verbatim", "adapted", "re-authored"}
-VERSION = "0.4.2-preview"
+VERSION = "0.5.0-preview"
 
 
 def fail(message):
@@ -344,6 +348,7 @@ RECORDS = {
     ),
     "opencode/bridge/PROVENANCE.md": ("opencode/bridge", "*.ts"),
     "opencode/rotation/PROVENANCE.md": ("opencode/rotation", "*.ts"),
+    "opencode/runtime/PROVENANCE.md": ("opencode/runtime", "*.ts"),
     "opencode/agents/PROVENANCE.md": ("opencode/agents", "opencode-agents-sync"),
 }
 
@@ -465,6 +470,7 @@ def main():
         dependencies(path)
     manifests()
     records()
+    check_registry(ROOT / "capabilities" / "registry.json", ROOT)
     print(
         f"PASS: {len(SKILLS | PORTED['skills'])} skills, {len(ROLES | PORTED['agents'])} roles, "
         f"{len(COMMANDS)} commands; catalog, scalar metadata, local dependencies, manifests, "

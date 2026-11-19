@@ -29,6 +29,9 @@ name, so extra columns are fine:
 - No systemd user manager (container, CI, other OS): unit checks report "not checkable" and the
   run does not fail. Hook checks without `--settings` are also "not checkable".
 - Usage errors exit 2.
+- `--format json` prints one JSON object (`host`, `registry`, `systemd`, `strict`, `notes`, `rows[]` with per-check
+  `verdict` of `ok`, `warn` or `dead`, and `violations`) instead of text. The verdicts and the exit code match the
+  text run. Install `modules/maintenance/` to convert a table to a machine-readable `<loops.json>`.
 
 ## What it does not do
 

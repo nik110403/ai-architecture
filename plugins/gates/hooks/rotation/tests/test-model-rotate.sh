@@ -211,7 +211,8 @@ rm -f "$T/proj/log.jsonl" "$T/rel.jsonl"
 	env ROTATION_POOL="$P_AB" ROTATION_LOG="rel.jsonl" python3 "$HOOK" <<<"$PL" >/dev/null
 )
 [ ! -e "$T/proj/log.jsonl" ] && [ ! -e "$T/proj/rel.jsonl" ] && ok "log path inside the project or relative: no log written" || bad "project-scope log written"
-seeds=$(for i in 1 2 3 4 5 6 7 8 9 10 11 12; do model_of "$(env ROTATION_POOL="$P_AB" ROTATION_SEED=fixed python3 "$HOOK" <<<"$PL")"; done | sort -u | wc -l)
+# builder pool is 3:1, so P(all N draws identical) = .75^N + .25^N: 12 draws flaked ~3% of runs, 60 draws ~3e-8
+seeds=$(for i in $(seq 1 60); do model_of "$(env ROTATION_POOL="$P_AB" ROTATION_SEED=fixed python3 "$HOOK" <<<"$PL")"; done | sort -u | wc -l)
 [ "$seeds" -gt 1 ] && ok "ROTATION_SEED without ROTATION_TEST=1 is ignored (draw stays random)" || bad "seed honoured without ROTATION_TEST"
 clearlog
 rmdir "$T/log" 2>/dev/null
@@ -221,6 +222,23 @@ run "$P_AB" "$PL" >/dev/null
 ln -sf "$T/target.txt" "$T/log/linked.jsonl"
 out=$(env ROTATION_POOL="$P_AB" ROTATION_LOG="$T/log/linked.jsonl" python3 "$HOOK" <<<"$PL")
 [ -n "$out" ] && [ ! -s "$T/target.txt" ] && ok "symlinked log is not followed (hook still answers)" || bad "symlinked log followed or hook blocked"
+
+# Reweighted pool shape (model-evaluation reweighter): integer weights, an extra `pinned` key the hook must ignore
+P_RW=$(pool rw '{"version":1,"mode":"on","independent_roles":["reviewer"],"roles":{"builder":[{"model":"provider/model-a","weight":24},{"model":"provider/model-b","weight":16},{"model":"provider/model-p","weight":20,"pinned":true},{"model":"provider/model-off","weight":5,"enabled":false}],"reviewer":[{"model":"provider/model-a","weight":1},{"model":"provider/model-b","weight":1}]}}')
+bad_seeds=0
+for s in $(seq 1 25); do
+	want=$(python3 -c 'import random,sys; arms=[("provider/model-a",24),("provider/model-b",16),("provider/model-p",20)]; r=random.Random("rotation:"+sys.argv[1]).randrange(60)
+for m,w in arms:
+    if r<w: print(m); break
+    r-=w' "$s")
+	got=$(model_of "$(run "$P_RW" "$PL" ROTATION_SEED="$s")")
+	[ "$got" = "$want" ] || bad_seeds=$((bad_seeds + 1))
+done
+[ "$bad_seeds" -eq 0 ] && ok "reweighted pool: seeded draws match the documented algorithm (extra pinned key ignored)" || bad "reweighted pool draws ($bad_seeds differ)"
+PIN=$(payload builder '"pin_arm: provider/model-b\n\ndo it"')
+[ "$(model_of "$(run "$P_RW" "$PIN" ROTATION_SEED=3)")" = "provider/model-b" ] && ok "reweighted pool: pin_arm still selects an enabled arm" || bad "reweighted pool pin_arm"
+PIN=$(payload builder '"pin_arm: provider/model-p\n\ndo it"')
+[ "$(model_of "$(run "$P_RW" "$PIN" ROTATION_SEED=3)")" = "provider/model-p" ] && ok "reweighted pool: pin_arm selects an arm marked pinned: true" || bad "reweighted pool pinned arm"
 
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -14,5 +14,6 @@
   "ui_builder_roles": ["design-builder"],
   "design_review_role": "design-critic",
   "security_review_role": "security-reviewer",
+  "review_receipts_dir": "",
   "trusted_plugin_prefixes": ["ai-architecture"]
 }

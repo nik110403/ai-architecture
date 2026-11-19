@@ -1,0 +1,6 @@
+{
+  "required": {
+    "schema": "string", "provider": "string", "rounds": "list", "stop_reason": "string", "budget": "object",
+    "frozen": "object", "resource": "object"
+  }
+}

@@ -254,5 +254,20 @@ await test("other tools and an existing variant name are left alone", async () =
   await hooks["tool.execute.before"]({ tool: "task" }, undefined)
 })
 
+await test("reweighted pool shape: integer weights, extra pinned key ignored, pin_arm still selects", async () => {
+  const rw = { version: 1, mode: "on", roles: { builder: [
+    { model: "provider/model-a", weight: 24 }, { model: "provider/model-b", weight: 16 },
+    { model: "provider/model-p", weight: 20, pinned: true }, { model: "provider/model-off", weight: 5, enabled: false } ] } }
+  const arms = core.roleArms(rw.roles.builder)!
+  assert.deepEqual(arms.map((a: any) => [a.model, a.weight]), [["provider/model-a", 24], ["provider/model-b", 16], ["provider/model-p", 20]])
+  const picks = Array.from({ length: 60 }, (_, n) => core.pickModel(arms, () => n))
+  assert.equal(picks.filter((m) => m === "provider/model-a").length, 24)
+  assert.equal(picks.filter((m) => m === "provider/model-p").length, 20)
+  assert.equal(core.extractPinArm("pin_arm: provider/model-p\n\ndo it"), "provider/model-p")
+  const file = w("rw.json", JSON.stringify(rw))
+  const pinned = await call("builder", "pin_arm: provider/model-b\n\ndo it", { ROTATION_POOL: file })
+  assert.equal(pinned.subagent_type, "builder--provider-model-b")
+})
+
 console.log(failed ? `${failed} FAILED` : "all passed")
 process.exit(failed ? 1 : 0)

@@ -1,0 +1,305 @@
+{
+ "_comment": "Shared bypass corpus. expect: deny|ask = the Python tripwire must deny or ask; not-approve = only the structural parser is checked. Every entry must be non-approved by bash-structural.ts. gen=megabyte expands to cmd + 1 MiB of 'A'.",
+ "entries": [
+  {
+   "cmd": "$'\\x72m' -rf ~",
+   "expect": "deny",
+   "note": "ANSI-C quoted command name"
+  },
+  {
+   "cmd": "r\\m -rf ~",
+   "expect": "deny",
+   "note": "backslash inside command name"
+  },
+  {
+   "cmd": "rm${IFS}-rf${IFS}~",
+   "expect": "deny",
+   "note": "IFS as separator"
+  },
+  {
+   "cmd": "eval \"rm -rf ~\"",
+   "expect": "deny",
+   "note": "eval of a literal"
+  },
+  {
+   "cmd": "command rm -rf ~",
+   "expect": "deny",
+   "note": "command prefix"
+  },
+  {
+   "cmd": "env rm -rf ~",
+   "expect": "deny",
+   "note": "env prefix"
+  },
+  {
+   "cmd": "bash -c \"rm -rf ~\"",
+   "expect": "deny",
+   "note": "bash -c"
+  },
+  {
+   "cmd": "sh <<< \"rm -rf ~\"",
+   "expect": "deny",
+   "note": "here-string into sh"
+  },
+  {
+   "cmd": "diff <(rm -rf ~) /dev/null",
+   "expect": "deny",
+   "note": "process substitution"
+  },
+  {
+   "cmd": "r\\\nm -rf ~",
+   "expect": "deny",
+   "note": "backslash-newline splits the command name"
+  },
+  {
+   "cmd": "echo cm0gLXJmIH4K | base64 -d | sh",
+   "expect": "ask",
+   "note": "base64 piped to sh"
+  },
+  {
+   "cmd": "echo cm0gLXJmIH4K | base64 -d | bash",
+   "expect": "ask",
+   "note": "base64 piped to bash"
+  },
+  {
+   "cmd": "x=rm; $x -rf ~",
+   "expect": "ask",
+   "note": "variable in command position"
+  },
+  {
+   "cmd": "a=r;b=m;$a$b -rf ~",
+   "expect": "ask",
+   "note": "two variables glued in command position"
+  },
+  {
+   "cmd": "$(echo rm) -rf ~",
+   "expect": "ask",
+   "note": "command substitution in command position"
+  },
+  {
+   "cmd": "`echo rm` -rf ~",
+   "expect": "ask",
+   "note": "backtick substitution in command position"
+  },
+  {
+   "cmd": "${CMD} -rf ~",
+   "expect": "ask",
+   "note": "braced variable in command position"
+  },
+  {
+   "cmd": "alias x=rm; x -rf ~",
+   "expect": "ask",
+   "note": "alias redefinition"
+  },
+  {
+   "cmd": "rm() { :; }; rm -rf ~",
+   "expect": "deny",
+   "note": "function redefinition then rm"
+  },
+  {
+   "cmd": "echo ~ | xargs rm -rf",
+   "expect": "deny",
+   "note": "xargs rm"
+  },
+  {
+   "cmd": "find ~ -delete",
+   "expect": "deny",
+   "note": "find -delete over home"
+  },
+  {
+   "cmd": "rm\u0000 -rf ~",
+   "expect": "deny",
+   "note": "NUL byte after the command name"
+  },
+  {
+   "cmd": "echo hello; rm -rf ~",
+   "expect": "deny",
+   "note": "chained after a benign command"
+  },
+  {
+   "cmd": "sudo rm -rf /",
+   "expect": "deny",
+   "note": "sudo rm of root"
+  },
+  {
+   "cmd": "/bin/rm -rf ~",
+   "expect": "deny",
+   "note": "absolute path command"
+  },
+  {
+   "cmd": "cat ~/.ssh/id_ed25519",
+   "expect": "deny",
+   "note": "secret read"
+  },
+  {
+   "cmd": "git reset --hard",
+   "expect": "ask",
+   "note": "ask-class command"
+  },
+  {
+   "cmd": "echo ",
+   "expect": "deny",
+   "note": "1 MiB of input",
+   "gen": "megabyte"
+  },
+  {
+   "cmd": "pwd )",
+   "expect": "not-approve",
+   "note": "parse error from allowlisted tokens only",
+   "parse_error": true
+  },
+  {
+   "cmd": "echo hi (",
+   "expect": "not-approve",
+   "note": "parse error from allowlisted tokens only",
+   "parse_error": true
+  },
+  {
+   "cmd": "git branch -a )",
+   "expect": "not-approve",
+   "note": "parse error from allowlisted tokens only",
+   "parse_error": true
+  },
+  {
+   "cmd": "pwd; (",
+   "expect": "not-approve",
+   "note": "unbalanced subshell",
+   "parse_error": true
+  },
+  {
+   "cmd": "pwd | | date",
+   "expect": "not-approve",
+   "note": "doubled pipe; ERROR node holds only allowlisted tokens",
+   "parse_error": true
+  },
+  {
+   "cmd": "date ; ; pwd",
+   "expect": "not-approve",
+   "note": "doubled separator; ERROR node holds only allowlisted tokens",
+   "parse_error": true
+  },
+  {
+   "cmd": "echo a # it's here\nr\\m -rf ~",
+   "expect": "deny",
+   "note": "U11 fix1 sec F1: apostrophe in a comment must not open single-quote state"
+  },
+  {
+   "cmd": "(:)# x\\\nrm -rf ~",
+   "expect": "deny",
+   "note": "U11 fix1 tribune F1: # after ) starts a comment; backslash-newline then joins nothing"
+  },
+  {
+   "cmd": "# a\"\n: # x\\\nrm -rf ~",
+   "expect": "deny",
+   "note": "U11 fix1 tribune F1: double quote in a comment must not hide the next comment"
+  },
+  {
+   "cmd": ": a\\ #;r\\\nm -rf ~",
+   "expect": "deny",
+   "note": "U11 fix1 tribune F1: # after an escaped space is not a comment"
+  },
+  {
+   "cmd": "x=rm; \"$x\" -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: quoted variable in command position"
+  },
+  {
+   "cmd": "\"$(echo rm)\" -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: quoted command substitution in command position"
+  },
+  {
+   "cmd": "x=rm; sudo $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after sudo"
+  },
+  {
+   "cmd": "x=rm; env $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after env"
+  },
+  {
+   "cmd": "x=rm; command $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after command"
+  },
+  {
+   "cmd": "x=rm; exec $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after exec"
+  },
+  {
+   "cmd": "x=rm; nohup $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after nohup"
+  },
+  {
+   "cmd": "x=rm; timeout 5 $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after timeout 5"
+  },
+  {
+   "cmd": "echo ~ | xargs $x -rf",
+   "expect": "ask",
+   "note": "U11 fix1: variable after xargs"
+  },
+  {
+   "cmd": "FOO=1 $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after an assignment"
+  },
+  {
+   "cmd": "for c in rm; do $c -rf ~; done",
+   "expect": "ask",
+   "note": "U11 fix1: variable after do"
+  },
+  {
+   "cmd": "if true; then $x -rf ~; fi",
+   "expect": "ask",
+   "note": "U11 fix1: variable after then"
+  },
+  {
+   "cmd": "x=rm; ! $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after !"
+  },
+  {
+   "cmd": "x=rm; time $x -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: variable after time"
+  },
+  {
+   "cmd": "x=rm; while true; do $x -rf ~; done",
+   "expect": "ask",
+   "note": "U11 fix1: variable after while/do"
+  },
+  {
+   "cmd": "x=rm; case a in a) $x -rf ~;; esac",
+   "expect": "ask",
+   "note": "U11 fix1: variable in a case arm"
+  },
+  {
+   "cmd": "set -- rm; $1 -rf ~",
+   "expect": "ask",
+   "note": "U11 fix1: positional parameter in command position"
+  },
+  {
+   "cmd": "tr\\\nuncate -s 0 f",
+   "expect": "deny",
+   "note": "U11 fix1 sec F5: backslash-newline joins a word in bash but is whitespace to tree-sitter"
+  },
+  {
+   "cmd": "echo\\\nx",
+   "expect": "not-approve",
+   "note": "U11 fix1 sec F5: backslash-newline after an allowlisted command name"
+  }
+ ],
+ "allow": [
+  "pwd",
+  "git branch -a",
+  "date",
+  "echo hello",
+  "git rev-parse HEAD",
+  "whoami"
+ ]
+}

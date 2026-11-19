@@ -1,0 +1,10 @@
+{
+  "required": {
+    "schema": "string", "plan_id": "string", "kickoff_id": "string", "repo": "string", "plan_rel": "string",
+    "user_branch": "null|string", "user_head": "string", "runner_branch": "string", "provider": "string",
+    "model": "null|string", "fake_bin": "null|string", "pin": "null|object", "limits": "object", "frozen": "object",
+    "spent": "object", "rounds": "list", "chain_head": "string", "fix_rounds": "object", "inflight": "list",
+    "queued": "list", "done": "list", "stop_reason": "null|string", "owner": "null|object", "detached_pid": "null|int",
+    "elapsed": "number", "seq": "int", "consumed": "null|bool", "adopted": "null|object"
+  }
+}

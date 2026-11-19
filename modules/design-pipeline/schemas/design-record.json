@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "The design record: the design-brief fields plus the machine-checkable parts. Unknown keys are refused.",
+  "type": "object",
+  "fields": {
+    "user_task": {"type": "string", "required": true},
+    "content_register": {"type": "string", "required": true},
+    "states": {"type": "list", "item": {"type": "string"}, "required": true},
+    "accessibility": {"type": "string", "required": true},
+    "visual_constraints": {"type": "string", "required": true},
+    "acceptance_evidence": {"type": "string", "required": true},
+    "tokens": {"type": "object", "required": true, "decision": true,
+               "fields": {"origin": {"type": "string"}, "colors": {"type": "list", "item": {"type": "string"}},
+                          "fonts": {"type": "list", "item": {"type": "string"}}}},
+    "interactions": {"type": "list", "required": true, "item": {"type": "object", "fields": {
+      "id": {"type": "string", "required": true}, "target": {"type": "string", "required": true},
+      "before": {"type": "list", "item": {"type": "string"}}, "key": {"type": "string", "required": true},
+      "expect": {"type": "object", "required": true, "fields": {
+        "selector": {"type": "string", "required": true}, "visible": {"type": "bool"},
+        "attr": {"type": "list", "item": {"type": "string"}}, "class": {"type": "string"}, "focused": {"type": "bool"}}}}}},
+    "required_elements": {"type": "list", "item": {"type": "string"}, "required": true},
+    "viewports": {"type": "list", "item": {"type": "string"}},
+    "motion": {"type": "bool"},
+    "motion_targets": {"type": "list", "item": {"type": "string"}}
+  }
+}

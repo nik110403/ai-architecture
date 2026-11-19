@@ -1,0 +1,11 @@
+{
+  "adapter": "video",
+  "obligations": ["video"],
+  "optional": true,
+  "dependencies": [
+    {"kind": "renderer", "name": "chrome", "use": "chrome-html frames of a CSS-animated page", "observed": "Google Chrome 156"},
+    {"kind": "renderer", "name": "ffmpeg", "use": "ffmpeg-encode: image frames to H.264", "encoder": "libx264", "pixel_format": "yuv420p", "observed": "ffmpeg 6.1"},
+    {"kind": "tool", "name": "ffprobe", "use": "ffprobe-inspect: codec, size, pixel format, frame count"},
+    {"kind": "font", "family": "DejaVu Sans", "use": "the only declared font, checked with fc-list"}
+  ]
+}

@@ -29,5 +29,11 @@ echo "== config scope =="
 python3 "$HERE/run_config_scope.py" || rc=1
 echo "== edit budget transactions =="
 python3 "$HERE/test_edit_budget.py" || rc=1
+echo "== bypass corpus / fail-closed hooks / review receipts / integrity =="
+python3 "$HERE/run_bypass.py" || rc=1
+python3 "$HERE/run_failclosed.py" || rc=1
+python3 "$HERE/run_review_golden.py" || rc=1
+python3 "$HERE/run_receipts.py" || rc=1
+python3 "$HERE/test_integrity.py" || rc=1
 [ "$rc" -eq 0 ] && echo "ALL GATES TESTS PASSED" || echo "GATES TESTS FAILED"
 exit "$rc"

@@ -158,8 +158,8 @@ class CollectionTests(unittest.TestCase):
     def test_escaping_reference(self):
         self.corrupt(
             "README.md",
-            "## How the system works",
-            "[escape](../outside.md)\n## How the system works",
+            "## What this is",
+            "[escape](../outside.md)\n## What this is",
             "escaping/redirected",
         )
 
@@ -203,7 +203,7 @@ class CollectionTests(unittest.TestCase):
 
     def test_manifest_bad_version(self):
         self.corrupt(
-            ".claude-plugin/plugin.json", "0.5.0-preview", "nonsense", "name/version"
+            ".claude-plugin/plugin.json", "0.5.1-preview", "nonsense", "name/version"
         )
 
     def test_manifest_duplicate_key(self):

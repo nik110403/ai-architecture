@@ -8,7 +8,7 @@ section; layout: `skills/<x>/`, `agents/<name>/`, `tools/<name>/` or
 `templates/<name>.PROVENANCE.md`. `scripts/check_collection.py` validates them.
 
 This map covers one working setup, in summary. It is not a runtime audit. Only the scripts, tools and
-plugins named in the [README](README.md#what-is-in-this-repository) run; everything else is instructions an agent follows.
+plugins named in the [README](README.md#whats-inside) run; everything else is instructions an agent follows.
 The status words mean:
 
 - **Workflow**: a process described here as instructions.

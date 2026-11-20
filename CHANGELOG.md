@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1-preview — 2026-11-20
+
+Documentation release. No module, skill, tool or capability behaviour changed from 0.5.0-preview; the only code changes are the version string and one test that anchors on a README heading.
+
+- README rewritten to explain the whole system in plain terms: what the collection is and who it is for, one diagram of the work loop with guards, memory and modules around it, a short glossary, the eight ideas behind it, and a map of everything inside, including the 30 modules by area and the 72-row capability registry with what `partial` and `planned` mean.
+- New README section "Try it in two minutes" with four offline commands that run without a model or network.
+- New README section "For AI agents reading this repository": a reading order, where each kind of fact lives (catalog, registry, coverage, provenance, changelog), and rules for reporting status without overclaiming. AGENTS.md now points evaluating agents to it.
+
 ## 0.5.0-preview — 2026-11-18
 
 Preview. Built and used on one Linux machine with Claude Code and OpenCode; other systems are untested, apart from one adoption smoke run on Windows 11 that did not pass every check. No capability is marked available: 59 run from this collection with fakes or declared tools, 13 need something not included. Adoption was rehearsed once: a Claude Code agent followed adapters/adopt.md in this release onto a test home we prepared with its own CLAUDE.md, settings and skills. A separate checker found every existing file unchanged outside marked blocks, a second run changed nothing, and rollback restored the starting state. 0 of 14 chosen capabilities passed their check, run by the same agent: 8 were installed but not checked, and 6 were marked unavailable. Earlier runs, including the failed ones, are listed in examples/adoption/REHEARSAL.md. Hooks were not rehearsed. No outside person has adopted it yet.
